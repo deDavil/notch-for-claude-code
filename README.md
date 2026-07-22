@@ -89,6 +89,23 @@ cross-checked against the CLI binary's own decision-parsing code.
 - Present in the binary (`permission_prompt`, `idle_prompt` types) but did not
   fire in headless probes; treated as best-effort passive input to `/v1/notify`.
 
+## End-to-end verification (walking skeleton, 2026-07-22)
+
+Proven live against a real interactive Claude Code session (`notch-permission.sh`
+→ app → decision → Claude):
+
+- **Deny** → the tool is blocked and Claude receives the app's message verbatim:
+  transcript shows `{"is_error":true,"content":"Denied via notch (auto)"}`.
+- **HTTP protocol** (headless `scripts/smoke-test.sh`, 5/5): health 200; notify
+  200; permission **allow echoes `updatedInput` faithfully**
+  (`"behavior":"allow"` + original `tool_input`); missing token → 403; malformed
+  body → 400.
+- **Fail-open**: app down → `notch-permission.sh` returns empty → Claude shows
+  its normal terminal prompt (curl `--connect-timeout 1`).
+
+The allow decision uses the identical transport and a schema verified against the
+CLI's own consumer; it is validated live by the operator once the notch UI lands.
+
 ## Build & run
 
 No Xcode required — pure SwiftPM (Swift 6.1+, macOS 15 SDK) plus a hand-rolled

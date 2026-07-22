@@ -1,21 +1,33 @@
 import AppKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settings = AppSettings.load()
     private var store: RequestStore!
+    private var autoAllow: AutoAllowStore!
     private var router: Router!
     private var server: HTTPServer!
     private var statusItem: NSStatusItem!
     private var panelController: PanelController!
     private var telegram: TelegramRelay?
+    private let hotKeys = HotKeys()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        let autoAllow = AutoAllowStore()
+        autoAllow = AutoAllowStore()
         store = RequestStore(settings: settings)
         store.autoAllow = autoAllow
+
+        // Hotkeys resolve the front request (registered only while pending).
+        hotKeys.onAction = { [weak self] action in
+            guard let self, let front = self.store.frontRequest else { return }
+            switch action {
+            case .approve: self.store.resolve(id: front.id, decision: .allow, source: .hotkey)
+            case .deny: self.store.resolve(id: front.id, decision: .deny(reason: "Denied via notch overlay"), source: .hotkey)
+            case .dismiss: self.store.resolve(id: front.id, decision: .noOpinion, source: .hotkey)
+            }
+        }
 
         // Telegram mirror (first-answer-wins). Nil when unconfigured → Mac-only.
         telegram = TelegramRelay(config: TelegramConfig.load())
@@ -32,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.onEnqueue = { [weak self] request in
             guard let self else { return }
             self.telegram?.announce(request)
+            self.hotKeys.enable()
             if let auto = self.settings.autoDecision {
                 let decision: Decision
                 switch auto {
@@ -55,16 +68,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.refreshStatus()
         }
         store.onResolve = { [weak self] request, decision, source in
-            self?.telegram?.settle(request, decision: decision, source: source)
-            self?.refreshStatus()
+            guard let self else { return }
+            self.telegram?.settle(request, decision: decision, source: source)
+            if self.store.pending.isEmpty { self.hotKeys.disable() }
+            self.refreshStatus()
         }
 
         panelController = PanelController(store: store, settings: settings)
         panelController.show()
 
         router = Router(store: store, settings: settings)
-        router.onNotify = { payload in
+        router.onNotify = { [weak self] payload in
+            guard let self else { return }
             Log.app.info("notify: \(payload.notificationType ?? payload.hookEventName ?? "?", privacy: .public)")
+            // Only surface a toast when no card is up (a pending decision wins the notch).
+            if self.store.pending.isEmpty {
+                self.store.showToast(Toast.from(payload))
+            }
         }
 
         server = HTTPServer(port: settings.port) { [weak self] req, client in
@@ -86,19 +106,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Notch")
         }
         let menu = NSMenu()
-        menu.addItem(withTitle: "Notch — Claude Code companion", action: nil, keyEquivalent: "")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Port: \(settings.port)", action: nil, keyEquivalent: "")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit", action: #selector(quit), keyEquivalent: "q")
+        menu.delegate = self // rebuilds dynamic rows on open
         statusItem.menu = menu
         refreshStatus()
+    }
+
+    /// Rebuild the menu each time it opens so counts/status are live.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        menu.addItem(withTitle: "Notch — Claude Code companion", action: nil, keyEquivalent: "")
+        menu.addItem(.separator())
+
+        let pending = store.pending.count
+        menu.addItem(withTitle: pending == 0 ? "No pending requests" : "\(pending) pending",
+                     action: nil, keyEquivalent: "")
+        let notch = settings.virtualNotch ? "virtual" : "real"
+        menu.addItem(withTitle: "Notch: \(notch) · port \(settings.port)", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Telegram: \(telegram == nil ? "off" : "on")", action: nil, keyEquivalent: "")
+
+        let rules = autoAllow.count
+        let clear = NSMenuItem(title: "Clear session rules (\(rules))",
+                               action: #selector(clearRules), keyEquivalent: "")
+        clear.target = self
+        clear.isEnabled = rules > 0
+        menu.addItem(clear)
+
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
     }
 
     private func refreshStatus() {
         guard let button = statusItem?.button else { return }
         let n = store.pending.count
         button.title = n > 0 ? " \(n)" : ""
+    }
+
+    @objc private func clearRules() {
+        autoAllow.clearAll()
     }
 
     @objc private func quit() {

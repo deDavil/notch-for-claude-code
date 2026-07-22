@@ -25,15 +25,17 @@ final class PanelController {
     }
 
     func show() {
-        applyCollapsed(animated: false)
+        refreshPresentation(animated: false)
         panel.orderFrontRegardless()
 
-        // React to queue changes: expand when work arrives, collapse when clear.
+        // Re-present whenever the queue or a toast changes.
         store.$pending
             .receive(on: RunLoop.main)
-            .sink { [weak self] pending in
-                self?.updateForPending(count: pending.count)
-            }
+            .sink { [weak self] _ in self?.refreshPresentation(animated: true) }
+            .store(in: &cancellables)
+        store.$toast
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshPresentation(animated: true) }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
@@ -44,21 +46,15 @@ final class PanelController {
             .store(in: &cancellables)
     }
 
-    private func updateForPending(count: Int) {
-        if count > 0 {
-            applyExpanded(animated: true)
+    /// Decide the panel size from current state: a card if something is pending,
+    /// else a toast pill if one is showing, else the collapsed notch.
+    private func refreshPresentation(animated: Bool) {
+        if !store.pending.isEmpty || store.toast != nil {
+            let size = measuredCardSize()
+            setFrame(geometry.expandedFrame(cardSize: size), animated: animated)
         } else {
-            applyCollapsed(animated: true)
+            setFrame(geometry.collapsedFrame, animated: animated)
         }
-    }
-
-    private func applyCollapsed(animated: Bool) {
-        setFrame(geometry.collapsedFrame, animated: animated)
-    }
-
-    private func applyExpanded(animated: Bool) {
-        let size = measuredCardSize()
-        setFrame(geometry.expandedFrame(cardSize: size), animated: animated)
     }
 
     /// Lay out the SwiftUI content at the card width and read back its fitting
@@ -86,7 +82,7 @@ final class PanelController {
 
     private func recomputeGeometry() {
         geometry = NotchGeometry.current(forceVirtual: settings.virtualNotch)
-        updateForPending(count: store.pending.count)
+        refreshPresentation(animated: false)
         Log.ui.info("geometry: mode=\(self.geometry.mode == .real ? "real" : "virtual", privacy: .public) notch=\(String(describing: self.geometry.notchRect), privacy: .public)")
     }
 }

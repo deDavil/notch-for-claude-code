@@ -17,12 +17,16 @@ struct RootView: View {
                         store.resolve(id: front.id, decision: decision, source: source)
                     })
                 .transition(.move(edge: .top).combined(with: .opacity))
+            } else if let toast = store.toast {
+                ToastView(toast: toast)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             } else {
                 CollapsedView(pendingCount: store.pending.count,
                               cornerRadius: collapsedCornerRadius)
             }
         }
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: store.pending.count)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: store.toast)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

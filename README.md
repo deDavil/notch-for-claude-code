@@ -129,8 +129,27 @@ com.apple.quarantine "Klavs Notch.app"`.
 
 ## Telegram relay
 
-Optional. Configure `~/.config/klavs-notch/telegram.json`
-(`{"token":"…","chat_id":123}`, chmod 600) with a **dedicated** bot from
-BotFather (do not reuse the runtime's bot — Telegram allows one `getUpdates`
-consumer per token). Absent config → relay silently off, Mac-only path fully
-works.
+Every pending prompt is mirrored to the operator's phone as a Telegram message
+with **Approve / Session / Deny** inline buttons. The Mac app stays the single
+arbiter: a tap calls `store.resolve` (idempotent), so **the first answer — notch
+click, hotkey, or phone tap — wins**, the notch card dismisses, and the Telegram
+message is edited to the outcome ("✅ Approved · from iPhone"); a late tap on the
+other device gets "Already handled".
+
+Setup (operator, one-time):
+
+1. Create a **dedicated** bot with [@BotFather](https://t.me/BotFather) →
+   `/newbot`. Do **not** reuse the runtime's bot — Telegram allows only one
+   `getUpdates` consumer per token.
+2. Get your numeric user id (e.g. via [@userinfobot](https://t.me/userinfobot))
+   and start a chat with your new bot.
+3. Write `~/.config/klavs-notch/telegram.json` (chmod 600):
+   ```json
+   { "token": "123456:ABC-…", "chat_id": <your id>, "operator_id": <your id> }
+   ```
+   `operator_id` restricts who may tap the buttons. Absent file → relay silently
+   off, Mac-only path fully works.
+
+Validated end-to-end against a mock Bot API (`scripts/telegram-mock-test.sh`):
+announce → `sendMessage` (3 buttons) → scripted callback resolves the parked
+permission (allow, first-wins) → `editMessageText` settle → `answerCallbackQuery`.

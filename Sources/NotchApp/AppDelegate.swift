@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: HTTPServer!
     private var statusItem: NSStatusItem!
     private var panelController: PanelController!
+    private var telegram: TelegramRelay?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -16,6 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store = RequestStore(settings: settings)
         store.autoAllow = autoAllow
 
+        // Telegram mirror (first-answer-wins). Nil when unconfigured → Mac-only.
+        telegram = TelegramRelay(config: TelegramConfig.load())
+        telegram?.onRemoteDecision = { [weak self] id, decision in
+            self?.store.resolve(id: id, decision: decision, source: .telegram) ?? false
+        }
+        telegram?.start()
+
         // Presenter selection:
         //  - NOTCH_AUTO      → headless auto-resolve (smoke tests / CI)
         //  - NOTCH_DIALOG=1  → osascript dialog (no-notch fallback / debugging)
@@ -23,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let useDialog = ProcessInfo.processInfo.environment["NOTCH_DIALOG"] == "1"
         store.onEnqueue = { [weak self] request in
             guard let self else { return }
+            self.telegram?.announce(request)
             if let auto = self.settings.autoDecision {
                 let decision: Decision
                 switch auto {
@@ -45,7 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // else: the notch panel (bound to store.pending) shows it.
             self.refreshStatus()
         }
-        store.onResolve = { [weak self] _, _ in
+        store.onResolve = { [weak self] request, decision, source in
+            self?.telegram?.settle(request, decision: decision, source: source)
             self?.refreshStatus()
         }
 

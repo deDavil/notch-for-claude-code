@@ -7,6 +7,9 @@ import AppKit
 enum NotchAppMain {
     @MainActor
     static func main() {
+        if ProcessInfo.processInfo.environment["NOTCH_SELFTEST"] == "1" {
+            SelfTest.run() // never returns
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

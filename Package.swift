@@ -13,6 +13,6 @@ let package = Package(
                 // strict concurrency isolation; v5 keeps this pragmatic without unsafe flags.
                 .swiftLanguageMode(.v5)
             ]
-        )
+        ),
     ]
 )

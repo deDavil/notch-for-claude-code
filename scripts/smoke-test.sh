@@ -16,6 +16,10 @@ echo "building..."
 swift build >/dev/null 2>&1 || { echo "build failed"; exit 1; }
 BIN="$(swift build --show-bin-path)/NotchApp"
 
+echo "unit self-tests..."
+if NOTCH_SELFTEST=1 "$BIN" | sed 's/^/  /'; then :; else fail "self-tests"; fi
+
+
 echo "starting app on port ${PORT} (NOTCH_AUTO=allow)..."
 NOTCH_PORT="$PORT" NOTCH_TOKEN="$TOKEN" NOTCH_AUTO=allow NOTCH_VIRTUAL=1 "$BIN" &
 APP_PID=$!

@@ -112,20 +112,56 @@ No Xcode required — pure SwiftPM (Swift 6.1+, macOS 15 SDK) plus a hand-rolled
 `.app` assembler.
 
 ```bash
-# dev (virtual notch, runs from source)
+# dev on a no-notch Mac (virtual notch pill, runs from source)
 notch/scripts/dev-run.sh
 
-# build a distributable .app bundle
+# build a distributable .app bundle  -> notch/build/Klavs Notch.app (+ .zip)
 notch/bundle/make-app.sh
 
-# install on the MacBook (app + hooks + settings merge + LaunchAgent)
+# install on the MacBook (app + hooks + settings merge + LaunchAgent + health check)
 notch/install.sh
+
+# remove everything (add --purge to also delete the app + token)
+notch/uninstall.sh
 ```
 
-See `bundle/make-app.sh` and `install.sh` headers for details. Shipping to the
-MacBook: `scp`/`rsync` the `.app` (neither sets a quarantine xattr), then
-`ditto -x -k` any zip. If Gatekeeper ever complains, `xattr -dr
-com.apple.quarantine "Klavs Notch.app"`.
+**Deploy to the MacBook:** build here (or on the MacBook), `scp`/`rsync` the
+`build/` folder + `hooks/` + `launchd/` + `install.sh`/`uninstall.sh` +
+`bundle/` over (scp/rsync set no quarantine xattr), then run `install.sh`. Or
+just check out the repo on the MacBook and run `install.sh` (it builds the
+bundle if missing). If Gatekeeper ever complains: `xattr -dr
+com.apple.quarantine "~/Applications/Klavs Notch.app"`.
+
+## Runtime knobs (env)
+
+| Var | Meaning |
+|---|---|
+| `NOTCH_PORT` | loopback port (default 8790); hook scripts honor it too |
+| `NOTCH_TOKEN` | shared token; else `~/.config/klavs-notch/token` |
+| `NOTCH_VIRTUAL=1` | force the virtual notch pill (dev on no-notch Macs) |
+| `NOTCH_DIALOG=1` | use an `osascript` dialog instead of the notch UI |
+| `NOTCH_AUTO=allow\|deny\|noop` | headless auto-resolve (CI/smoke) |
+| `NOTCH_SELFTEST=1` | run unit self-tests and exit |
+| `NOTCH_TELEGRAM_BASE` | override Bot API base (mock tests) |
+
+## Tests
+
+```bash
+notch/scripts/smoke-test.sh            # unit self-tests + HTTP protocol (health/allow/403/400)
+notch/scripts/telegram-mock-test.sh    # relay round-trip vs a mock Bot API
+notch/scripts/settings-merge-test.sh   # install/uninstall jq merge: idempotent + clean round-trip
+```
+
+## Layout
+
+```
+notch/
+  Package.swift                Sources/NotchApp/{Models,Server,State,Remote,Window,Views,Support}
+  hooks/notch-permission.sh    hooks/notch-notify.sh          # fail-open curl bridges
+  bundle/make-app.sh           bundle/Info.plist.template     # no-Xcode .app assembler
+  launchd/…notch.plist.template
+  install.sh  uninstall.sh     scripts/{dev-run,smoke-test,telegram-mock-test,settings-merge-test}.sh
+```
 
 ## Telegram relay
 

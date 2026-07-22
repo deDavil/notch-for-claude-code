@@ -28,15 +28,16 @@ DEST_PLIST="${LA_DIR}/${LABEL}.plist"
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required for the safe settings.json merge." >&2; exit 1; }
 
 # --- 1. locate / build the app bundle --------------------------------------
+# Always rebuild when a toolchain is present so `git pull && ./install.sh`
+# actually ships the new code; fall back to a prebuilt bundle only if swift
+# is unavailable (e.g. installing from an unpacked distribution).
 APP_SRC="${HERE}/build/${APP_NAME}.app"
-if [[ ! -d "$APP_SRC" ]]; then
-  if command -v swift >/dev/null 2>&1 && [[ -f "${HERE}/bundle/make-app.sh" ]]; then
-    echo "==> app bundle missing; building it"
-    ( cd "$HERE" && bash bundle/make-app.sh >/dev/null )
-  else
-    echo "ERROR: ${APP_SRC} not found and cannot build (no swift / make-app.sh)." >&2
-    exit 1
-  fi
+if command -v swift >/dev/null 2>&1 && [[ -f "${HERE}/bundle/make-app.sh" ]]; then
+  echo "==> building app bundle (this can take a minute)"
+  ( cd "$HERE" && bash bundle/make-app.sh >/dev/null )
+elif [[ ! -d "$APP_SRC" ]]; then
+  echo "ERROR: ${APP_SRC} not found and cannot build (no swift / make-app.sh)." >&2
+  exit 1
 fi
 
 mkdir -p "$APPS_DIR" "$HOOKS_DIR" "$CFG_DIR" "$LA_DIR" "$LOG_DIR"

@@ -14,6 +14,8 @@ enum SelfTest {
         testNoOpinionEmpty()
         testToolSummary()
         testSessionLabel()
+        testDiffEngine()
+        testEditProducesDiff()
         MainActor.assumeIsolated {
             testFirstWinsIdempotent()
             testQueueFIFORouting()
@@ -102,6 +104,24 @@ enum SelfTest {
     private static func testSessionLabel() {
         check(payload(#"{"cwd":"/Users/x/ai-system","session_id":"abcdef123"}"#).sessionLabel == "ai-system",
               "sessionLabel from cwd basename")
+    }
+
+    private static func testDiffEngine() {
+        // one line changed in the middle; prefix/suffix are context
+        let d = TextDiff.lines(old: "a\nb\nc", new: "a\nB\nc")
+        let removed = d.filter { $0.kind == .removed }.map { $0.text }
+        let added = d.filter { $0.kind == .added }.map { $0.text }
+        check(removed == ["b"] && added == ["B"] && TextDiff.stat(d) == "+1 −1",
+              "TextDiff isolates the changed line")
+    }
+
+    private static func testEditProducesDiff() {
+        let p = payload(#"{"tool_name":"Edit","tool_input":{"file_path":"/a/main.swift","old_string":"let x = 1","new_string":"let x = 2"}}"#)
+        let s = ToolSummary.make(from: p)
+        let hasRemoved = (s.diff ?? []).contains { $0.kind == .removed && $0.text == "let x = 1" }
+        let hasAdded = (s.diff ?? []).contains { $0.kind == .added && $0.text == "let x = 2" }
+        check(hasRemoved && hasAdded && s.title.contains("main.swift"),
+              "Edit tool produces a diff")
     }
 
     // MARK: arbiter (MainActor)

@@ -7,8 +7,14 @@ enum OSAScriptPrompt {
     static func present(_ request: PendingRequest, completion: @escaping (Decision) -> Void) {
         let s = request.summary
         let title = "Claude Code — \(request.sessionLabel)"
-        let detail = String(s.detail.prefix(400))
-        let message = "\(s.title)\n\n\(detail)"
+        let body: String
+        if let diff = s.diff, !diff.isEmpty {
+            body = diff.prefix(20).map { ($0.kind == .added ? "+ " : $0.kind == .removed ? "- " : "  ") + $0.text }.joined(separator: "\n")
+        } else {
+            body = String((s.fullText ?? s.detail).prefix(400))
+        }
+        let reason = s.reason.map { "\($0)\n\n" } ?? ""
+        let message = "\(s.title)\n\(reason)\(body)"
 
         let script = """
         display dialog \(quote(message)) \

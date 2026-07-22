@@ -133,12 +133,32 @@ final class TelegramRelay {
 
     private static func messageText(for request: PendingRequest) -> String {
         let s = request.summary
-        var lines = ["🔐 <b>\(esc(request.sessionLabel))</b> needs permission",
-                     esc(s.title)]
-        if !s.detail.isEmpty {
-            lines.append("<code>\(esc(String(s.detail.prefix(300))))</code>")
+        var lines = ["🔐 <b>\(esc(request.sessionLabel))</b> · \(esc(s.title))"]
+        if let cwd = s.cwd { lines.append("📁 <code>\(esc(cwd))</code>") }
+        if let reason = s.reason, !reason.isEmpty {
+            lines.append("💬 <i>\(esc(String(reason.prefix(300))))</i>")
+        }
+        if let diff = s.diff, !diff.isEmpty {
+            lines.append("<pre>\(esc(renderDiff(diff)))</pre>")
+        } else if let full = s.fullText, !full.isEmpty {
+            lines.append("<pre>\(esc(String(full.prefix(1500))))</pre>")
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// Plain-text diff for a Telegram <pre> block, bounded to keep the message
+    /// under Telegram's 4096-char limit.
+    private static func renderDiff(_ diff: [DiffLine]) -> String {
+        let rendered = diff.map { line -> String in
+            let p: String
+            switch line.kind {
+            case .added: p = "+"
+            case .removed: p = "-"
+            case .context: p = " "
+            }
+            return "\(p) \(line.text)"
+        }.joined(separator: "\n")
+        return String(rendered.prefix(3000))
     }
 
     private static func verdictLine(decision: Decision?, source: DecisionSource) -> String {

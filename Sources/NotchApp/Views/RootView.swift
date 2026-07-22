@@ -16,6 +16,7 @@ struct RootView: View {
                     onDecision: { decision, source in
                         store.resolve(id: front.id, decision: decision, source: source)
                     })
+                .id(front.id) // fresh form state per request
                 .transition(.move(edge: .top).combined(with: .opacity))
             } else if let toast = store.toast {
                 ToastView(toast: toast)

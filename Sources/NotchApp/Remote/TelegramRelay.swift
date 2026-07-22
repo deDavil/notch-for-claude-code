@@ -58,6 +58,9 @@ final class TelegramRelay {
                     text: "\(i + 1). \(opt.label)", callbackData: "req:\(idStr):opt:\(i)")])
             }
             rows.append([TelegramAPI.InlineButton(text: "⛔️ Dismiss", callbackData: "req:\(idStr):deny")])
+        } else if request.summary.ask != nil {
+            // Multi-part / multi-select question: answer on the Mac notch; phone can only dismiss.
+            rows.append([TelegramAPI.InlineButton(text: "⛔️ Dismiss", callbackData: "req:\(idStr):deny")])
         } else {
             rows.append([
                 TelegramAPI.InlineButton(text: "✅ Approve", callbackData: "req:\(idStr):allow"),
@@ -164,7 +167,7 @@ final class TelegramRelay {
                     lines.append(line)
                 }
             }
-            if !ask.isSimple { lines.append("\n<i>Multi-part — answer in the terminal.</i>") }
+            if !ask.isSimple { lines.append("\n<i>Multi-part question — answer on the Mac notch.</i>") }
             return lines.joined(separator: "\n")
         }
 

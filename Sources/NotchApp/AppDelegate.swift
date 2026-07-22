@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var router: Router!
     private var server: HTTPServer!
     private var statusItem: NSStatusItem!
+    private var panelController: PanelController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -15,9 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store = RequestStore(settings: settings)
         store.autoAllow = autoAllow
 
-        // Presenter. NOTCH_AUTO short-circuits UI for headless smoke tests;
-        // otherwise the skeleton uses an osascript dialog (replaced by the notch
-        // UI in later phases).
+        // Presenter selection:
+        //  - NOTCH_AUTO      → headless auto-resolve (smoke tests / CI)
+        //  - NOTCH_DIALOG=1  → osascript dialog (no-notch fallback / debugging)
+        //  - default         → the notch panel (PanelController reacts to the queue)
+        let useDialog = ProcessInfo.processInfo.environment["NOTCH_DIALOG"] == "1"
         store.onEnqueue = { [weak self] request in
             guard let self else { return }
             if let auto = self.settings.autoDecision {
@@ -32,15 +35,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 return
             }
-            OSAScriptPrompt.present(request) { decision in
-                Task { @MainActor in
-                    self.store.resolve(id: request.id, decision: decision, source: .notch)
+            if useDialog {
+                OSAScriptPrompt.present(request) { decision in
+                    Task { @MainActor in
+                        self.store.resolve(id: request.id, decision: decision, source: .notch)
+                    }
                 }
             }
+            // else: the notch panel (bound to store.pending) shows it.
+            self.refreshStatus()
         }
         store.onResolve = { [weak self] _, _ in
             self?.refreshStatus()
         }
+
+        panelController = PanelController(store: store, settings: settings)
+        panelController.show()
 
         router = Router(store: store, settings: settings)
         router.onNotify = { payload in

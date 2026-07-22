@@ -10,6 +10,7 @@ struct ToolSummary {
     var reason: String?      // Claude's stated reason (Bash description / transcript)
     var fullText: String?    // untruncated body for text calls (command, url, query)
     var diff: [DiffLine]?    // rendered change for Edit/Write/MultiEdit
+    var ask: AskContent? = nil   // parsed AskUserQuestion (question + options)
 
     private static let maxDiffLines = 60
 
@@ -19,6 +20,13 @@ struct ToolSummary {
         let cwd = abbreviate(payload.cwd)
 
         switch tool {
+        case "AskUserQuestion":
+            let ask = AskContent.parse(input)
+            let title = ask?.first?.header.isEmpty == false ? (ask?.first?.header ?? "Question") : "Question"
+            return ToolSummary(title: title, icon: "questionmark.bubble",
+                               detail: ask?.first?.question ?? "", cwd: cwd,
+                               reason: nil, fullText: nil, diff: nil, ask: ask)
+
         case "Bash":
             let cmd = input?["command"]?.stringValue ?? ""
             return ToolSummary(

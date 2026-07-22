@@ -13,9 +13,28 @@ enum HookResponse {
             return nil
         case .allow, .allowForSession:
             return allow(event: event, toolInput: payload.toolInput)
+        case .answer(let answers):
+            // Approve AskUserQuestion with the chosen answers merged into the input.
+            let merged = mergeAnswers(into: payload.toolInput, answers: answers)
+            return allow(event: event, toolInput: merged)
         case .deny(let reason):
             return deny(event: event, reason: reason)
         }
+    }
+
+    /// Merge `answers` (question text → label) into the tool input's `answers` map.
+    private static func mergeAnswers(into input: JSONValue?, answers: [String: String]) -> JSONValue {
+        var obj: [String: JSONValue] = {
+            if case .object(let o)? = input { return o }
+            return [:]
+        }()
+        var answerMap: [String: JSONValue] = {
+            if case .object(let a)? = obj["answers"] { return a }
+            return [:]
+        }()
+        for (q, a) in answers { answerMap[q] = .string(a) }
+        obj["answers"] = .object(answerMap)
+        return .object(obj)
     }
 
     private static func allow(event: String, toolInput: JSONValue?) -> Data? {

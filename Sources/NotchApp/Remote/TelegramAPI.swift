@@ -15,19 +15,20 @@ struct TelegramAPI {
 
     struct InlineButton { let text: String; let callbackData: String }
 
-    /// Send a message with an optional single-row inline keyboard. Returns the
-    /// created message_id, or nil on failure.
-    func sendMessage(chatId: Int64, text: String, buttons: [InlineButton]) async -> Int? {
+    /// Send a message with an optional inline keyboard (one array per row).
+    /// Returns the created message_id, or nil on failure.
+    func sendMessage(chatId: Int64, text: String, rows: [[InlineButton]]) async -> Int? {
         var body: [String: Any] = [
             "chat_id": chatId,
             "text": text,
             "parse_mode": "HTML",
             "disable_web_page_preview": true,
         ]
-        if !buttons.isEmpty {
-            body["reply_markup"] = ["inline_keyboard": [buttons.map {
-                ["text": $0.text, "callback_data": $0.callbackData]
-            }]]
+        let nonEmpty = rows.filter { !$0.isEmpty }
+        if !nonEmpty.isEmpty {
+            body["reply_markup"] = ["inline_keyboard": nonEmpty.map { row in
+                row.map { ["text": $0.text, "callback_data": $0.callbackData] }
+            }]
         }
         let json = await post("sendMessage", body)
         return (json?["result"] as? [String: Any])?["message_id"] as? Int

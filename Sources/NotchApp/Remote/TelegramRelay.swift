@@ -12,6 +12,7 @@ final class TelegramRelay {
         var messageId: Int?
         var baseText: String
         var settledText: String?
+        var question: AskContent.Question?   // for mapping option taps → answers
         init(baseText: String) { self.baseText = baseText }
     }
 
@@ -47,14 +48,27 @@ final class TelegramRelay {
         records[request.id] = record
 
         let idStr = request.id.uuidString
-        let buttons = [
-            TelegramAPI.InlineButton(text: "✅ Approve", callbackData: "req:\(idStr):allow"),
-            TelegramAPI.InlineButton(text: "♻️ Session", callbackData: "req:\(idStr):session"),
-            TelegramAPI.InlineButton(text: "⛔️ Deny", callbackData: "req:\(idStr):deny"),
-        ]
+        var rows: [[TelegramAPI.InlineButton]] = []
+
+        if let ask = request.summary.ask, ask.isSimple, let q = ask.first {
+            // One button per answer option, then Deny.
+            record.question = q
+            for (i, opt) in q.options.enumerated() {
+                rows.append([TelegramAPI.InlineButton(
+                    text: "\(i + 1). \(opt.label)", callbackData: "req:\(idStr):opt:\(i)")])
+            }
+            rows.append([TelegramAPI.InlineButton(text: "⛔️ Dismiss", callbackData: "req:\(idStr):deny")])
+        } else {
+            rows.append([
+                TelegramAPI.InlineButton(text: "✅ Approve", callbackData: "req:\(idStr):allow"),
+                TelegramAPI.InlineButton(text: "♻️ Session", callbackData: "req:\(idStr):session"),
+                TelegramAPI.InlineButton(text: "⛔️ Deny", callbackData: "req:\(idStr):deny"),
+            ])
+        }
+
         Task { [weak self] in
             guard let self else { return }
-            let mid = await self.api.sendMessage(chatId: self.config.chatId, text: base, buttons: buttons)
+            let mid = await self.api.sendMessage(chatId: self.config.chatId, text: base, rows: rows)
             self.attachMessageId(mid, to: request.id)
         }
     }
@@ -114,7 +128,7 @@ final class TelegramRelay {
 
         guard let data = cb["data"] as? String else { return }
         let parts = data.split(separator: ":")
-        guard parts.count == 3, parts[0] == "req",
+        guard parts.count >= 3, parts[0] == "req",
               let id = UUID(uuidString: String(parts[1])) else { return }
 
         let decision: Decision
@@ -122,6 +136,11 @@ final class TelegramRelay {
         case "allow": decision = .allow
         case "session": decision = .allowForSession
         case "deny": decision = .deny(reason: "Denied from iPhone")
+        case "opt":
+            // Answer an AskUserQuestion: map the option index → its label.
+            guard parts.count == 4, let idx = Int(parts[3]),
+                  let q = records[id]?.question, idx < q.options.count else { return }
+            decision = .answer([q.question: q.options[idx].label])
         default: return
         }
 
@@ -133,6 +152,22 @@ final class TelegramRelay {
 
     private static func messageText(for request: PendingRequest) -> String {
         let s = request.summary
+
+        // AskUserQuestion → a real question with numbered options.
+        if let ask = s.ask {
+            var lines = ["❓ <b>\(esc(request.sessionLabel))</b> asks:"]
+            for q in ask.questions {
+                lines.append("\n<b>\(esc(q.question))</b>")
+                for (i, opt) in q.options.enumerated() {
+                    var line = "\(i + 1). <b>\(esc(opt.label))</b>"
+                    if !opt.description.isEmpty { line += " — \(esc(opt.description))" }
+                    lines.append(line)
+                }
+            }
+            if !ask.isSimple { lines.append("\n<i>Multi-part — answer in the terminal.</i>") }
+            return lines.joined(separator: "\n")
+        }
+
         var lines = ["🔐 <b>\(esc(request.sessionLabel))</b> · \(esc(s.title))"]
         if let cwd = s.cwd { lines.append("📁 <code>\(esc(cwd))</code>") }
         if let reason = s.reason, !reason.isEmpty {
@@ -168,6 +203,9 @@ final class TelegramRelay {
         switch decision {
         case .allow: return "✅ Approved\(from)"
         case .allowForSession: return "✅ Approved · whole session\(from)"
+        case .answer(let answers):
+            let picked = answers.values.joined(separator: ", ")
+            return "✅ Answered: <b>\(esc(picked))</b>\(from)"
         case .deny: return "⛔️ Denied\(from)"
         case .noOpinion: return "⏱ Timed out — answer in terminal"
         }

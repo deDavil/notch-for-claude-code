@@ -16,6 +16,8 @@ enum SelfTest {
         testSessionLabel()
         testDiffEngine()
         testEditProducesDiff()
+        testAskParsing()
+        testAnswerInjection()
         MainActor.assumeIsolated {
             testFirstWinsIdempotent()
             testQueueFIFORouting()
@@ -122,6 +124,31 @@ enum SelfTest {
         let hasAdded = (s.diff ?? []).contains { $0.kind == .added && $0.text == "let x = 2" }
         check(hasRemoved && hasAdded && s.title.contains("main.swift"),
               "Edit tool produces a diff")
+    }
+
+    private static func testAskParsing() {
+        let p = payload(#"""
+        {"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Tabs or spaces?","header":"Style","multiSelect":false,"options":[{"label":"Tabs","description":"use tabs"},{"label":"Spaces","description":"use spaces"}]}]}}
+        """#)
+        let s = ToolSummary.make(from: p)
+        let ok = s.ask?.isSimple == true
+            && s.ask?.first?.question == "Tabs or spaces?"
+            && s.ask?.first?.options.map { $0.label } == ["Tabs", "Spaces"]
+        check(ok, "AskUserQuestion parses question + options")
+    }
+
+    private static func testAnswerInjection() {
+        // Decision.answer must merge into tool_input.answers, keyed by question text.
+        let p = payload(#"{"hook_event_name":"PermissionRequest","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Q?"}]}}"#)
+        let body = HookResponse.body(for: .answer(["Q?": "Spaces"]), payload: p)
+        let hso = obj(body)["hookSpecificOutput"] as? [String: Any]
+        let decision = hso?["decision"] as? [String: Any]
+        let updated = decision?["updatedInput"] as? [String: Any]
+        let answers = updated?["answers"] as? [String: Any]
+        check(decision?["behavior"] as? String == "allow"
+              && answers?["Q?"] as? String == "Spaces"
+              && updated?["questions"] != nil,
+              "answer injects answers + preserves questions")
     }
 
     // MARK: arbiter (MainActor)

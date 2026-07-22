@@ -18,6 +18,9 @@ enum Decision: Sendable {
     case allowForSession
     /// Deny with a message shown to Claude.
     case deny(reason: String)
+    /// Answer an AskUserQuestion: approve and pre-fill `answers` (question text →
+    /// chosen label) in the tool input, so the choice flows back to Claude.
+    case answer([String: String])
     /// No opinion — respond with empty body so Claude falls back to its own prompt.
     case noOpinion
 }

@@ -47,6 +47,13 @@ struct RequestCardView: View {
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Capsule().fill(.secondary.opacity(0.15)))
             }
+            // Close without giving Claude any input → it falls back to the terminal.
+            Button { onDecision(.noOpinion, .notch) } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14)).foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Close — answer in the terminal instead")
         }
     }
 

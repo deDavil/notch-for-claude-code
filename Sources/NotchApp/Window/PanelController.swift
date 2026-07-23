@@ -2,6 +2,13 @@ import AppKit
 import SwiftUI
 import Combine
 
+/// Hosting view that responds to the FIRST click even when the panel isn't the
+/// key window. Without this, macOS swallows the first click on a non-activating
+/// panel just to focus it, so option rows/buttons feel dead until a second click.
+final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 /// Owns the notch panel: hosts the SwiftUI content, positions it at the notch,
 /// and animates between the collapsed pill and the expanded card as the store's
 /// pending queue changes. Recomputes geometry on display changes.
@@ -10,7 +17,7 @@ final class PanelController {
     private let store: RequestStore
     private let settings: AppSettings
     private let panel = NotchPanel()
-    private let hostingView: NSHostingView<RootView>
+    private let hostingView: FirstMouseHostingView<RootView>
     private var geometry: NotchGeometry
     private var cancellables: Set<AnyCancellable> = []
 
@@ -19,7 +26,7 @@ final class PanelController {
         self.settings = settings
         self.geometry = NotchGeometry.current(forceVirtual: settings.virtualNotch)
         let corner: CGFloat = geometry.mode == .virtual ? 10 : 8
-        self.hostingView = NSHostingView(
+        self.hostingView = FirstMouseHostingView(
             rootView: RootView(store: store, collapsedCornerRadius: corner))
         panel.contentView = hostingView
     }

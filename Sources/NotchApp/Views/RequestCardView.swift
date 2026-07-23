@@ -22,6 +22,8 @@ struct RequestCardView: View {
             header
             if let ask = s.ask {
                 askForm(ask)
+            } else if let plan = s.plan {
+                planBody(plan)
             } else {
                 standardBody
             }
@@ -175,6 +177,26 @@ struct RequestCardView: View {
         var answers: [String: String] = [:]
         for q in ask.questions { answers[q.question] = answer(for: q) }
         onDecision(.answer(answers), .notch)
+    }
+
+    // MARK: - ExitPlanMode
+
+    @ViewBuilder private func planBody(_ plan: String) -> some View {
+        Text(s.title).font(.system(size: 13, weight: .semibold))
+        if let cwd = s.cwd {
+            Label(cwd, systemImage: "folder").font(.system(size: 10))
+                .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+        }
+        PlanView(markdown: plan)
+        HStack(spacing: 8) {
+            Button { onDecision(.deny(reason: "Plan rejected — keep planning"), .notch) } label: {
+                Label("Reject", systemImage: "xmark").frame(maxWidth: .infinity)
+            }.tint(.red).keyboardShortcut("n", modifiers: [])
+            Button { onDecision(.allow, .notch) } label: {
+                Label("Approve & build", systemImage: "checkmark").frame(maxWidth: .infinity)
+            }.tint(.green).keyboardShortcut(.defaultAction)
+        }
+        .buttonStyle(.borderedProminent).controlSize(.small)
     }
 
     // MARK: - standard tool

@@ -8,7 +8,9 @@ enum OSAScriptPrompt {
         let s = request.summary
         let title = "Claude Code — \(request.sessionLabel)"
         let body: String
-        if let diff = s.diff, !diff.isEmpty {
+        if let plan = s.plan {
+            body = String(plan.prefix(600))
+        } else if let diff = s.diff, !diff.isEmpty {
             body = diff.prefix(20).map { ($0.kind == .added ? "+ " : $0.kind == .removed ? "- " : "  ") + $0.text }.joined(separator: "\n")
         } else {
             body = String((s.fullText ?? s.detail).prefix(400))

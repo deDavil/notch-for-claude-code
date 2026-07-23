@@ -61,6 +61,11 @@ final class TelegramRelay {
         } else if request.summary.ask != nil {
             // Multi-part / multi-select question: answer on the Mac notch; phone can only dismiss.
             rows.append([TelegramAPI.InlineButton(text: "⛔️ Dismiss", callbackData: "req:\(idStr):deny")])
+        } else if request.summary.plan != nil {
+            rows.append([
+                TelegramAPI.InlineButton(text: "✅ Approve & build", callbackData: "req:\(idStr):allow"),
+                TelegramAPI.InlineButton(text: "⛔️ Reject", callbackData: "req:\(idStr):deny"),
+            ])
         } else {
             rows.append([
                 TelegramAPI.InlineButton(text: "✅ Approve", callbackData: "req:\(idStr):allow"),
@@ -168,6 +173,15 @@ final class TelegramRelay {
                 }
             }
             if !ask.isSimple { lines.append("\n<i>Multi-part question — answer on the Mac notch.</i>") }
+            return lines.joined(separator: "\n")
+        }
+
+        // ExitPlanMode → the plan, readable (real newlines), not JSON.
+        if let plan = s.plan {
+            var lines = ["📋 <b>\(esc(request.sessionLabel))</b> · Implementation plan"]
+            if let cwd = s.cwd { lines.append("📁 <code>\(esc(cwd))</code>") }
+            lines.append("")
+            lines.append(esc(String(plan.prefix(3500))))
             return lines.joined(separator: "\n")
         }
 

@@ -18,6 +18,7 @@ enum SelfTest {
         testEditProducesDiff()
         testAskParsing()
         testAnswerInjection()
+        testExitPlanMode()
         MainActor.assumeIsolated {
             testFirstWinsIdempotent()
             testQueueFIFORouting()
@@ -136,6 +137,16 @@ enum SelfTest {
             && s.ask?.first?.question == "Tabs or spaces?"
             && s.ask?.first?.options.map { $0.label } == ["Tabs", "Spaces"]
         check(ok, "AskUserQuestion parses question + options")
+    }
+
+    private static func testExitPlanMode() {
+        // The plan must be extracted decoded (real newlines), not re-encoded JSON.
+        let p = payload(##"{"tool_name":"ExitPlanMode","tool_input":{"plan":"# Title\n\n- step one\n- step two"}}"##)
+        let s = ToolSummary.make(from: p)
+        check(s.plan == "# Title\n\n- step one\n- step two"
+              && s.plan?.contains("\n") == true
+              && s.title == "Implementation plan",
+              "ExitPlanMode extracts the decoded plan markdown")
     }
 
     private static func testAnswerInjection() {

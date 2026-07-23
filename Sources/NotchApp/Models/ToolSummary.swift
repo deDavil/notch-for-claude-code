@@ -11,6 +11,7 @@ struct ToolSummary {
     var fullText: String?    // untruncated body for text calls (command, url, query)
     var diff: [DiffLine]?    // rendered change for Edit/Write/MultiEdit
     var ask: AskContent? = nil   // parsed AskUserQuestion (question + options)
+    var plan: String? = nil      // ExitPlanMode markdown plan (decoded, real newlines)
 
     private static let maxDiffLines = 60
 
@@ -26,6 +27,12 @@ struct ToolSummary {
             return ToolSummary(title: title, icon: "questionmark.bubble",
                                detail: ask?.first?.question ?? "", cwd: cwd,
                                reason: nil, fullText: nil, diff: nil, ask: ask)
+
+        case "ExitPlanMode":
+            let plan = input?["plan"]?.stringValue ?? ""
+            return ToolSummary(title: "Implementation plan", icon: "checklist",
+                               detail: "", cwd: cwd, reason: nil, fullText: nil,
+                               diff: nil, ask: nil, plan: plan)
 
         case "Bash":
             let cmd = input?["command"]?.stringValue ?? ""

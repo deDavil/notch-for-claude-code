@@ -25,6 +25,7 @@ enum SelfTest {
             testAutoAllowShortCircuits()
             testAutoAllowClearedOnStop()
             testAutoAllowSessionScoped()
+            testSessionRegistry()
         }
         if failures == 0 {
             print("SELFTEST: all passed")
@@ -214,5 +215,24 @@ enum SelfTest {
         auto.remember(payload: payload(#"{"tool_name":"Bash","session_id":"s1","tool_input":{"command":"ls"}}"#))
         check(!auto.matches(payload(#"{"tool_name":"Bash","session_id":"s2","tool_input":{"command":"ls"}}"#)),
               "auto-allow is session-scoped")
+    }
+
+    @MainActor private static func testSessionRegistry() {
+        let reg = SessionRegistry()
+        reg.noteEvent(payload(#"{"hook_event_name":"SessionStart","session_id":"s","cwd":"/x/proj"}"#))
+        reg.noteEvent(payload(#"{"hook_event_name":"UserPromptSubmit","session_id":"s","cwd":"/x/proj"}"#))
+        let working = reg.sessions.first?.displayState == .working && reg.sessions.first?.label == "proj"
+        // A pending approval outranks the working base state.
+        reg.incPending(payload(#"{"session_id":"s","tool_name":"Bash"}"#))
+        let waiting = reg.sessions.first?.displayState == .waitingApproval && reg.aggregate == .waitingApproval
+        reg.decPending(payload(#"{"session_id":"s","tool_name":"Bash"}"#))
+        let backToWorking = reg.sessions.first?.displayState == .working
+        // Stop → idle; SessionEnd → removed.
+        reg.noteEvent(payload(#"{"hook_event_name":"Stop","session_id":"s"}"#))
+        let idle = reg.sessions.first?.displayState == .idle
+        reg.noteEvent(payload(#"{"hook_event_name":"SessionEnd","session_id":"s"}"#))
+        let gone = reg.sessions.isEmpty
+        check(working && waiting && backToWorking && idle && gone,
+              "SessionRegistry state machine (start→work→approval→work→idle→end)")
     }
 }

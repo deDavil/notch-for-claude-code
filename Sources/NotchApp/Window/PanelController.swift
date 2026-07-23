@@ -15,19 +15,21 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
 @MainActor
 final class PanelController {
     private let store: RequestStore
+    private let registry: SessionRegistry
     private let settings: AppSettings
     private let panel = NotchPanel()
     private let hostingView: FirstMouseHostingView<RootView>
     private var geometry: NotchGeometry
     private var cancellables: Set<AnyCancellable> = []
 
-    init(store: RequestStore, settings: AppSettings) {
+    init(store: RequestStore, registry: SessionRegistry, settings: AppSettings) {
         self.store = store
+        self.registry = registry
         self.settings = settings
         self.geometry = NotchGeometry.current(forceVirtual: settings.virtualNotch)
         let corner: CGFloat = geometry.mode == .virtual ? 10 : 8
         self.hostingView = FirstMouseHostingView(
-            rootView: RootView(store: store, collapsedCornerRadius: corner))
+            rootView: RootView(store: store, registry: registry, collapsedCornerRadius: corner))
         panel.contentView = hostingView
     }
 
@@ -44,6 +46,14 @@ final class PanelController {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.refreshPresentation(animated: true) }
             .store(in: &cancellables)
+        registry.$cockpitOpen
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshPresentation(animated: true) }
+            .store(in: &cancellables)
+        registry.$sessions
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshPresentation(animated: true) }
+            .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .debounce(for: .milliseconds(250), scheduler: RunLoop.main)
@@ -56,7 +66,10 @@ final class PanelController {
     /// Decide the panel size from current state: a card if something is pending,
     /// else a toast pill if one is showing, else the collapsed notch.
     private func refreshPresentation(animated: Bool) {
-        if !store.pending.isEmpty || store.toast != nil {
+        let expanded = !store.pending.isEmpty
+            || (registry.cockpitOpen && !registry.sessions.isEmpty)
+            || store.toast != nil
+        if expanded {
             let size = measuredCardSize()
             setFrame(geometry.expandedFrame(cardSize: size), animated: animated)
         } else {

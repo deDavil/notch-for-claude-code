@@ -8,11 +8,13 @@ import Foundation
 @MainActor
 final class Router {
     private let store: RequestStore
+    private let registry: SessionRegistry
     private let settings: AppSettings
     var onNotify: ((HookPayload) -> Void)?
 
-    init(store: RequestStore, settings: AppSettings) {
+    init(store: RequestStore, registry: SessionRegistry, settings: AppSettings) {
         self.store = store
+        self.registry = registry
         self.settings = settings
     }
 
@@ -45,10 +47,14 @@ final class Router {
     }
 
     private func health(_ client: HTTPClient) {
+        let states = Dictionary(grouping: registry.sessions, by: { $0.displayState.rawValue })
+            .mapValues { $0.count }
         let body: [String: Any] = [
             "ok": true,
             "pending": store.pending.count,
             "notch": settings.virtualNotch ? "virtual" : "real",
+            "sessions": registry.sessions.count,
+            "states": states,
         ]
         let data = (try? JSONSerialization.data(withJSONObject: body)) ?? Data("{}".utf8)
         client.respond(.json(200, data))

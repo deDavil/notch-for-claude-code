@@ -4,6 +4,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settings = AppSettings.load()
     private var store: RequestStore!
+    private var registry: SessionRegistry!
     private var autoAllow: AutoAllowStore!
     private var router: Router!
     private var server: HTTPServer!
@@ -16,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         autoAllow = AutoAllowStore()
+        registry = SessionRegistry()
         store = RequestStore(settings: settings)
         store.autoAllow = autoAllow
 
@@ -43,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let useDialog = ProcessInfo.processInfo.environment["NOTCH_DIALOG"] == "1"
         store.onEnqueue = { [weak self] request in
             guard let self else { return }
+            self.registry.incPending(request.payload)
             self.telegram?.announce(request)
             self.hotKeys.enable()
             if let auto = self.settings.autoDecision {
@@ -69,18 +72,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         store.onResolve = { [weak self] request, decision, source in
             guard let self else { return }
+            self.registry.decPending(request.payload)
             self.telegram?.settle(request, decision: decision, source: source)
             if self.store.pending.isEmpty { self.hotKeys.disable() }
             self.refreshStatus()
         }
 
-        panelController = PanelController(store: store, settings: settings)
+        panelController = PanelController(store: store, registry: registry, settings: settings)
         panelController.show()
 
-        router = Router(store: store, settings: settings)
+        router = Router(store: store, registry: registry, settings: settings)
         router.onNotify = { [weak self] payload in
             guard let self else { return }
             Log.app.info("notify: \(payload.notificationType ?? payload.hookEventName ?? "?", privacy: .public)")
+            self.registry.noteEvent(payload)
             // Only surface a toast when no card is up (a pending decision wins the notch).
             if self.store.pending.isEmpty {
                 self.store.showToast(Toast.from(payload))

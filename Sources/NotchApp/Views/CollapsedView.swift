@@ -4,7 +4,14 @@ import SwiftUI
 /// status dot. On a virtual notch (dev) it's a top-center pill.
 struct CollapsedView: View {
     var pendingCount: Int
+    var aggregate: SessionState? = nil
     var cornerRadius: CGFloat = 10
+
+    private var dotColor: Color {
+        if pendingCount > 0 { return .orange }
+        if let aggregate { return StateColor.of(aggregate) }
+        return .green.opacity(0.5)
+    }
 
     var body: some View {
         ZStack {
@@ -15,9 +22,7 @@ struct CollapsedView: View {
                 .fill(Color.black)
 
             HStack(spacing: 5) {
-                Circle()
-                    .fill(pendingCount > 0 ? Color.orange : Color.green.opacity(0.7))
-                    .frame(width: 6, height: 6)
+                Circle().fill(dotColor).frame(width: 6, height: 6)
                 if pendingCount > 0 {
                     Text("\(pendingCount)")
                         .font(.system(size: 10, weight: .semibold, design: .rounded))

@@ -76,23 +76,24 @@ MERGED="$(printf '%s' "$CURRENT" | jq \
   --arg perm "$PERM_CMD" --arg notify "$NOTIFY_CMD" '
   def has_notch(ev): ([ (.hooks[ev] // [])[] | .hooks[]?.command ]
                       | map(select(. != null)) | any(test("hooks/notch/")));
+  def add_notify(ev): if has_notch(ev) then .
+    else .hooks[ev] = ((.hooks[ev] // []) + [{matcher:"", hooks:[{type:"command", command:$notify}]}]) end;
   (.hooks //= {}) |
   (if has_notch("PermissionRequest") then .
    else .hooks.PermissionRequest = ((.hooks.PermissionRequest // []) +
         [{matcher:"*", hooks:[{type:"command", command:$perm, timeout:600}]}]) end) |
-  (if has_notch("Notification") then .
-   else .hooks.Notification = ((.hooks.Notification // []) +
-        [{matcher:"", hooks:[{type:"command", command:$notify}]}]) end) |
-  (if has_notch("Stop") then .
-   else .hooks.Stop = ((.hooks.Stop // []) +
-        [{matcher:"", hooks:[{type:"command", command:$notify}]}]) end)
+  add_notify("Notification") |
+  add_notify("Stop") |
+  add_notify("SessionStart") |
+  add_notify("UserPromptSubmit") |
+  add_notify("SessionEnd")
 ')" || { echo "ERROR: jq merge failed; settings.json left untouched." >&2; exit 1; }
 
 # Validate before writing.
 printf '%s' "$MERGED" | jq empty || { echo "ERROR: merged settings invalid; not written." >&2; exit 1; }
 printf '%s\n' "$MERGED" > "${SETTINGS}.tmp.$$"
 mv "${SETTINGS}.tmp.$$" "$SETTINGS"
-echo "    hooks registered (PermissionRequest timeout=600, Notification, Stop)"
+echo "    hooks registered (PermissionRequest timeout=600; Notification/Stop/SessionStart/UserPromptSubmit/SessionEnd → cockpit)"
 
 # --- 5. LaunchAgent ---------------------------------------------------------
 echo "==> installing LaunchAgent ${LABEL}"

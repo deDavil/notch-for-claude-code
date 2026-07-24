@@ -27,6 +27,7 @@ enum SelfTest {
             testAutoAllowClearedOnStop()
             testAutoAllowSessionScoped()
             testSessionRegistry()
+            testDecisionLogRecord()
         }
         if failures == 0 {
             print("SELFTEST: all passed")
@@ -226,6 +227,22 @@ enum SelfTest {
         auto.remember(payload: payload(#"{"tool_name":"Bash","session_id":"s1","tool_input":{"command":"ls"}}"#))
         check(!auto.matches(payload(#"{"tool_name":"Bash","session_id":"s2","tool_input":{"command":"ls"}}"#)),
               "auto-allow is session-scoped")
+    }
+
+    @MainActor private static func testDecisionLogRecord() {
+        let p = payload(#"{"session_id":"s1","cwd":"/x/proj","tool_name":"Bash","tool_input":{"command":"git push"}}"#)
+        let req = PendingRequest(payload: p, receivedAt: Date().addingTimeInterval(-7)) { _ in }
+        let allow = DecisionLog.record(request: req, decision: .allow, source: .telegram)
+        let drop = DecisionLog.record(request: req, decision: nil, source: .clientDropped)
+        let answer = DecisionLog.record(request: req, decision: .answer(["Q?": "Tabs"]), source: .notch)
+        check(allow["decision"] as? String == "allow"
+              && allow["source"] as? String == "telegram"
+              && allow["session"] as? String == "proj"
+              && (allow["latency_s"] as? Int ?? -1) >= 6
+              && drop["decision"] as? String == "dropped"
+              && answer["decision"] as? String == "answer"
+              && (answer["answers"] as? [String: String])?["Q?"] == "Tabs",
+              "DecisionLog record format (allow/dropped/answer + latency)")
     }
 
     @MainActor private static func testSessionRegistry() {

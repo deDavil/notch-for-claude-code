@@ -77,6 +77,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if self.store.pending.isEmpty { self.hotKeys.disable() }
             self.refreshStatus()
         }
+        // Audit every terminal outcome (incl. auto-allow + client drops).
+        store.onOutcome = { request, decision, source in
+            DecisionLog.append(request: request, decision: decision, source: source)
+        }
 
         panelController = PanelController(store: store, registry: registry, settings: settings)
         panelController.show()
@@ -136,6 +140,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clear.isEnabled = rules > 0
         menu.addItem(clear)
 
+        let log = NSMenuItem(title: "Open decision log",
+                             action: #selector(openDecisionLog), keyEquivalent: "")
+        log.target = self
+        log.isEnabled = FileManager.default.fileExists(atPath: DecisionLog.path)
+        menu.addItem(log)
+
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
@@ -150,6 +160,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func clearRules() {
         autoAllow.clearAll()
+    }
+
+    @objc private func openDecisionLog() {
+        NSWorkspace.shared.open(URL(fileURLWithPath: DecisionLog.path))
     }
 
     @objc private func quit() {

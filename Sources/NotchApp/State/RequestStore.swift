@@ -18,6 +18,9 @@ final class RequestStore: ObservableObject {
     /// is nil when the request went away without a verdict (client dropped).
     var onEnqueue: ((PendingRequest) -> Void)?
     var onResolve: ((PendingRequest, Decision?, DecisionSource) -> Void)?
+    /// Fired on EVERY terminal outcome — including auto-allow short-circuits and
+    /// client drops, which never reach onResolve/onEnqueue respectively. Audit hook.
+    var onOutcome: ((PendingRequest, Decision?, DecisionSource) -> Void)?
 
     var autoAllow: AutoAllowStore?
 
@@ -38,6 +41,7 @@ final class RequestStore: ObservableObject {
             Log.store.info("auto-allow match for \(payload.toolName ?? "?", privacy: .public)")
             let body = HookResponse.body(for: .allow, payload: payload)
             request.fulfil(with: body)
+            onOutcome?(request, .allow, .autoAllow)
             return nil
         }
 
@@ -64,6 +68,7 @@ final class RequestStore: ObservableObject {
         request.fulfil(with: body)
         Log.store.info("resolved \(request.sessionLabel, privacy: .public) via \(source.rawValue, privacy: .public) pending=\(self.pending.count)")
         onResolve?(request, decision, source)
+        onOutcome?(request, decision, source)
         return true
     }
 
@@ -75,6 +80,7 @@ final class RequestStore: ObservableObject {
         cancelTimeout(id: id)
         Log.store.info("client dropped \(request.sessionLabel, privacy: .public) pending=\(self.pending.count)")
         onResolve?(request, nil, .clientDropped)
+        onOutcome?(request, nil, .clientDropped)
     }
 
     /// When a session Stops, clear its auto-allow rules (scope = one session).

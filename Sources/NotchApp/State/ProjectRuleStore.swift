@@ -45,6 +45,17 @@ final class ProjectRuleStore {
         save()
     }
 
+    /// All rules, stably sorted for display.
+    func allRules() -> [Rule] {
+        rules.sorted { ($0.cwd, $0.tool, $0.pattern) < ($1.cwd, $1.tool, $1.pattern) }
+    }
+
+    /// Revoke a single rule (persists immediately).
+    func remove(_ rule: Rule) {
+        rules.remove(rule)
+        save()
+    }
+
     // MARK: - persistence
 
     private func load() {

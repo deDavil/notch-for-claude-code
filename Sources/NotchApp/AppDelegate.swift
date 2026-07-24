@@ -143,12 +143,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clear.isEnabled = rules > 0
         menu.addItem(clear)
 
-        let projects = projectRules.count
-        let clearProj = NSMenuItem(title: "Clear project rules (\(projects))",
-                                   action: #selector(clearProjectRules), keyEquivalent: "")
-        clearProj.target = self
-        clearProj.isEnabled = projects > 0
-        menu.addItem(clearProj)
+        // Project rules submenu: one row per rule (click to revoke) + Clear all.
+        let rules2 = projectRules.allRules()
+        let rulesItem = NSMenuItem(title: "Project rules (\(rules2.count))", action: nil, keyEquivalent: "")
+        if rules2.isEmpty {
+            rulesItem.isEnabled = false
+        } else {
+            let sub = NSMenu()
+            sub.addItem(withTitle: "Click a rule to revoke it", action: nil, keyEquivalent: "")
+            sub.addItem(.separator())
+            for rule in rules2 {
+                let project = (rule.cwd as NSString).lastPathComponent
+                let item = NSMenuItem(title: "\(project) · \(rule.tool) · \(rule.pattern)",
+                                      action: #selector(revokeRule(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = rule
+                item.toolTip = rule.cwd
+                sub.addItem(item)
+            }
+            sub.addItem(.separator())
+            let clearAll = NSMenuItem(title: "Clear all project rules",
+                                      action: #selector(clearProjectRules), keyEquivalent: "")
+            clearAll.target = self
+            sub.addItem(clearAll)
+            rulesItem.submenu = sub
+        }
+        menu.addItem(rulesItem)
 
         let log = NSMenuItem(title: "Open decision log",
                              action: #selector(openDecisionLog), keyEquivalent: "")
@@ -174,6 +194,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func clearProjectRules() {
         projectRules.clearAll()
+    }
+
+    @objc private func revokeRule(_ sender: NSMenuItem) {
+        guard let rule = sender.representedObject as? ProjectRuleStore.Rule else { return }
+        projectRules.remove(rule)
     }
 
     @objc private func openDecisionLog() {

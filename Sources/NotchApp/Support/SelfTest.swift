@@ -254,6 +254,16 @@ enum SelfTest {
 
         check(sameProject && !otherProject && persisted && short,
               "project rules: scoped, persistent, short-circuit enqueue")
+
+        // Individual revoke: listed, removable, removal persists.
+        let listed = b.allRules()
+        let hadOne = listed.count == 1
+        if let rule = listed.first { b.remove(rule) }
+        let goneNow = !b.matches(payload(#"{"cwd":"/x/projA","tool_name":"Bash","tool_input":{"command":"git pull"}}"#))
+        let c = ProjectRuleStore()
+        let goneAfterReload = !c.matches(payload(#"{"cwd":"/x/projA","tool_name":"Bash","tool_input":{"command":"git pull"}}"#))
+        check(hadOne && goneNow && goneAfterReload,
+              "project rules: individual revoke persists")
     }
 
     @MainActor private static func testDecisionLogRecord() {

@@ -31,6 +31,7 @@ enum SelfTest {
             testProjectRules()
             testPausedFallsThrough()
             testHostAppTracking()
+            testAutoPause()
         }
         if failures == 0 {
             print("SELFTEST: all passed")
@@ -230,6 +231,32 @@ enum SelfTest {
         auto.remember(payload: payload(#"{"tool_name":"Bash","session_id":"s1","tool_input":{"command":"ls"}}"#))
         check(!auto.matches(payload(#"{"tool_name":"Bash","session_id":"s2","tool_input":{"command":"ls"}}"#)),
               "auto-allow is session-scoped")
+    }
+
+    @MainActor private static func testAutoPause() {
+        let store = makeStore()
+        // autoPaused behaves like paused for enqueue…
+        store.autoPaused = true
+        var body: Data? = Data("sentinel".utf8)
+        var source: DecisionSource?
+        store.onOutcome = { _, _, s in source = s }
+        let id = store.enqueue(payload: payload(#"{"tool_name":"Bash","session_id":"s","tool_input":{"command":"x"}}"#)) { body = $0 }
+        let autoBlocks = id == nil && body == nil && source == .paused
+
+        // …and is independent of the manual flag (call ends ≠ manual resume).
+        store.paused = true
+        store.autoPaused = false
+        let manualStillHolds = store.effectivePaused
+        store.paused = false
+        let bothClear = !store.effectivePaused
+
+        // CoreAudio plumbing: safe live read on this machine (no crash; the
+        // headless mini's mic is idle, but any Bool is acceptable).
+        let device = MicMonitor.currentDefaultInputDevice()
+        _ = MicMonitor.isRunningSomewhere(device)
+
+        check(autoBlocks && manualStillHolds && bothClear,
+              "auto-pause: blocks like pause, independent of manual flag")
     }
 
     @MainActor private static func testHostAppTracking() {

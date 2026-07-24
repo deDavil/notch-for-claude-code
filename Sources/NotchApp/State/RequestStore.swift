@@ -12,6 +12,11 @@ final class RequestStore: ObservableObject {
     /// Privacy pause: while true, every request falls straight through to the
     /// terminal (noOpinion), nothing is displayed or announced anywhere.
     @Published var paused = false
+    /// Auto-pause driven by MicMonitor (operator is on a call). Same effect as
+    /// `paused`, tracked separately so resuming a call doesn't clear a manual pause.
+    @Published var autoPaused = false
+
+    var effectivePaused: Bool { paused || autoPaused }
 
     private let settings: AppSettings
     private var timeouts: [UUID: DispatchWorkItem] = [:]
@@ -44,7 +49,7 @@ final class RequestStore: ObservableObject {
         // Privacy pause: silently hand the decision back to the terminal.
         // Checked BEFORE auto-allow so nothing at all happens on this machine's
         // screen or the phone while paused.
-        if paused {
+        if effectivePaused {
             request.fulfil(with: nil)
             onOutcome?(request, .noOpinion, .paused)
             return nil
@@ -109,7 +114,7 @@ final class RequestStore: ObservableObject {
     /// Show a passive toast for a few seconds (suppressed while a card is up
     /// and while paused).
     func showToast(_ toast: Toast?, duration: TimeInterval = 4) {
-        guard let toast, !paused else { return }
+        guard let toast, !effectivePaused else { return }
         self.toast = toast
         toastClear?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.toast = nil }

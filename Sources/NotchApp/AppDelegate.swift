@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var panelController: PanelController!
     private var telegram: TelegramRelay?
     private let hotKeys = HotKeys()
+    private let micMonitor = MicMonitor()
+    /// Menu-toggleable; NOTCH_AUTOPAUSE=0 disables the feature at launch.
+    private var autoPauseEnabled = ProcessInfo.processInfo.environment["NOTCH_AUTOPAUSE"] != "0"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -85,6 +88,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DecisionLog.append(request: request, decision: decision, source: source)
         }
 
+        // Auto-pause while the mic is in use (operator is on a call).
+        micMonitor.onChange = { [weak self] inUse in
+            guard let self else { return }
+            self.store.autoPaused = self.autoPauseEnabled && inUse
+        }
+        micMonitor.start()
+
         panelController = PanelController(store: store, registry: registry, settings: settings)
         panelController.show()
 
@@ -135,6 +145,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pause.target = self
         pause.state = store.paused ? .on : .off
         menu.addItem(pause)
+
+        let auto = NSMenuItem(
+            title: store.autoPaused ? "Auto-paused: on a call (mic in use)"
+                                    : "Auto-pause during calls",
+            action: #selector(toggleAutoPause), keyEquivalent: "")
+        auto.target = self
+        auto.state = autoPauseEnabled ? .on : .off
+        menu.addItem(auto)
         menu.addItem(.separator())
 
         let pending = store.pending.count
@@ -211,9 +229,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func togglePause() {
         store.paused.toggle()
-        if let button = statusItem?.button {
-            button.appearsDisabled = store.paused
-        }
+        refreshPauseAppearance()
+    }
+
+    @objc private func toggleAutoPause() {
+        autoPauseEnabled.toggle()
+        store.autoPaused = autoPauseEnabled && micMonitor.inUse
+        refreshPauseAppearance()
+    }
+
+    private func refreshPauseAppearance() {
+        statusItem?.button?.appearsDisabled = store.effectivePaused
     }
 
     @objc private func openDecisionLog() {

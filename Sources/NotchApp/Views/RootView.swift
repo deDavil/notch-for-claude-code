@@ -29,7 +29,7 @@ struct RootView: View {
             } else {
                 CollapsedView(pendingCount: store.pending.count,
                               aggregate: registry.aggregate,
-                              paused: store.paused,
+                              paused: store.effectivePaused,
                               cornerRadius: collapsedCornerRadius)
                     .contentShape(Rectangle())
                     .onTapGesture {

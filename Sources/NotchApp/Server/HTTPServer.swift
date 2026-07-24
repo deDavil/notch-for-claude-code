@@ -8,6 +8,7 @@ final class HTTPClient {
     private let connection: NWConnection
     private let queue: DispatchQueue
     private var responded = false
+    private var closedFired = false
     var onDisconnect: (() -> Void)?
 
     init(connection: NWConnection, queue: DispatchQueue) {
@@ -27,10 +28,12 @@ final class HTTPClient {
         }
     }
 
+    /// One-shot (all calls on the serial queue): fire onDisconnect at most once,
+    /// and only if we never sent a response.
     fileprivate func markPeerClosed() {
-        if !responded {
-            onDisconnect?()
-        }
+        guard !responded, !closedFired else { return }
+        closedFired = true
+        onDisconnect?()
     }
 }
 
@@ -87,17 +90,23 @@ final class HTTPServer {
             }
         }
         conn.start(queue: queue)
-        readLoop(conn: conn, parser: parser, client: client)
+        readLoop(conn: conn, parser: parser, client: client, routed: false)
     }
 
-    private func readLoop(conn: NWConnection, parser: HTTPRequestParser, client: HTTPClient) {
+    /// Reads until the request is parsed and routed, then KEEPS an outstanding
+    /// receive so a peer close (graceful FIN from a Ctrl-C'd session's killed
+    /// curl) is detected promptly and drops the parked card — rather than
+    /// lingering until the answer timeout. Post-route bytes are ignored.
+    private func readLoop(conn: NWConnection, parser: HTTPRequestParser,
+                          client: HTTPClient, routed: Bool) {
         conn.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
             guard let self else { return }
-            if let data, !data.isEmpty {
+            var didRoute = routed
+            if !didRoute, let data, !data.isEmpty {
                 do {
                     if try parser.feed(data), let request = parser.request {
                         self.router(request, client)
-                        return // stop reading; router owns the response lifecycle
+                        didRoute = true // keep watching for close, don't return
                     }
                 } catch {
                     client.respond(.text(400, "bad request"))
@@ -109,7 +118,7 @@ final class HTTPServer {
                 conn.cancel()
                 return
             }
-            self.readLoop(conn: conn, parser: parser, client: client)
+            self.readLoop(conn: conn, parser: parser, client: client, routed: didRoute)
         }
     }
 }

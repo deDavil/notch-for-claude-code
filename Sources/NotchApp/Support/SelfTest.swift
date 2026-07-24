@@ -32,6 +32,7 @@ enum SelfTest {
             testPausedFallsThrough()
             testHostAppTracking()
             testAutoPause()
+            testTelegramRecordPruning()
         }
         if failures == 0 {
             print("SELFTEST: all passed")
@@ -231,6 +232,27 @@ enum SelfTest {
         auto.remember(payload: payload(#"{"tool_name":"Bash","session_id":"s1","tool_input":{"command":"ls"}}"#))
         check(!auto.matches(payload(#"{"tool_name":"Bash","session_id":"s2","tool_input":{"command":"ls"}}"#)),
               "auto-allow is session-scoped")
+    }
+
+    @MainActor private static func testTelegramRecordPruning() {
+        // A finished record (settled + message id) is reclaimed; an in-flight
+        // one (settled but no id yet) and a fresh one are kept. This is what
+        // bounds announce()'s records map instead of leaking one entry/prompt.
+        let finished = TelegramRelay.Record(baseText: "done")
+        finished.messageId = 1; finished.settledText = "done\n\n✅"
+        let awaitingId = TelegramRelay.Record(baseText: "settled but no id")
+        awaitingId.settledText = "x"                       // messageId still nil
+        let fresh = TelegramRelay.Record(baseText: "pending")
+
+        let before: [UUID: TelegramRelay.Record] =
+            [UUID(): finished, UUID(): awaitingId, UUID(): fresh]
+        let after = TelegramRelay.pruneFinished(before)
+
+        check(before.count == 3 && after.count == 2
+              && finished.isFinished           // finished record really is finished…
+              && !awaitingId.isFinished        // …and the id-awaiting one is not
+              && after.values.allSatisfy { !$0.isFinished },
+              "Telegram records: finished pruned, in-flight kept")
     }
 
     @MainActor private static func testAutoPause() {

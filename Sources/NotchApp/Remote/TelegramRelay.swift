@@ -8,13 +8,25 @@ import Foundation
 /// handled". Disabled cleanly when no config is present.
 @MainActor
 final class TelegramRelay {
-    private final class Record {
+    final class Record {  // module-internal so the record-pruning logic is unit-testable
         var messageId: Int?
         var baseText: String
         var settledText: String?
         var question: AskContent.Question?   // for mapping option taps → answers
         init(baseText: String) { self.baseText = baseText }
+
+        /// Fully done: settled AND its message id has arrived — safe to reclaim.
+        var isFinished: Bool { settledText != nil && messageId != nil }
     }
+
+    /// Drop records that are fully finished, bounding the map's growth. Kept as a
+    /// pure function so it can be tested without a live relay.
+    static func pruneFinished(_ records: [UUID: Record]) -> [UUID: Record] {
+        records.filter { !$0.value.isFinished }
+    }
+
+    /// For tests.
+    var recordCount: Int { records.count }
 
     private let config: TelegramConfig
     private let api: TelegramAPI
@@ -43,6 +55,7 @@ final class TelegramRelay {
     // MARK: - Announce / settle (called from the store's hooks)
 
     func announce(_ request: PendingRequest) {
+        records = Self.pruneFinished(records)   // reclaim finished records
         let base = Self.messageText(for: request)
         let record = Record(baseText: base)
         records[request.id] = record

@@ -147,10 +147,20 @@ com.apple.quarantine "~/Applications/Klavs Notch.app"`.
 ## Tests
 
 ```bash
+notch/scripts/verify.sh                # ← run everything: build + self-tests + all suites (one gate)
+notch/scripts/verify.sh --install-hook # gate every push on the suite (git pre-push hook)
+
+# individual suites:
 notch/scripts/smoke-test.sh            # unit self-tests + HTTP protocol (health/allow/403/400)
 notch/scripts/telegram-mock-test.sh    # relay round-trip vs a mock Bot API
 notch/scripts/settings-merge-test.sh   # install/uninstall jq merge: idempotent + clean round-trip
+notch/scripts/hostapp-test.sh          # notify hook attaches hosting-app pid/comm
+notch/scripts/single-instance-test.sh  # duplicate instance exits cleanly, first keeps serving
 ```
+
+There is no cloud CI for the Mac app (this repo is a private mono-repo without
+GitHub Actions by design); `verify.sh` is the local equivalent — run it before
+pushing, or install it as a pre-push hook.
 
 ## Layout
 

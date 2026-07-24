@@ -53,7 +53,7 @@ BIN="$(swift build --show-bin-path)/NotchApp"
 run "self-tests (NOTCH_SELFTEST)" bash -c 'NOTCH_SELFTEST=1 "$0" | grep -q "all passed"' "$BIN"
 
 # 3. Script-level suites (each spins the app up on its own port).
-for suite in smoke-test telegram-mock-test settings-merge-test hostapp-test single-instance-test client-drop-test; do
+for suite in smoke-test telegram-mock-test telegram-backoff-test settings-merge-test hostapp-test single-instance-test client-drop-test; do
   if [ -x "scripts/${suite}.sh" ]; then
     run "scripts/${suite}.sh" bash "scripts/${suite}.sh"
   fi

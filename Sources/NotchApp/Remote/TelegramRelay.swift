@@ -112,8 +112,16 @@ final class TelegramRelay {
     // MARK: - Long-poll
 
     private func pollLoop() async {
+        var backoff: UInt64 = 0   // nanoseconds; grows on failure, resets on success
         while !Task.isCancelled {
-            let updates = await api.getUpdates(offset: offset, timeout: 25)
+            guard let updates = await api.getUpdates(offset: offset, timeout: 25) else {
+                // Failure (bad token / conflict / network): exponential backoff,
+                // capped at 30s, so a misconfigured relay never hammers the API.
+                backoff = backoff == 0 ? 1_000_000_000 : min(backoff * 2, 30_000_000_000)
+                try? await Task.sleep(nanoseconds: backoff)
+                continue
+            }
+            backoff = 0
             for update in updates {
                 if let updateId = update["update_id"] as? Int {
                     offset = max(offset, updateId + 1)

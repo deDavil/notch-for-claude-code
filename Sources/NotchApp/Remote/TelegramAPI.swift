@@ -53,14 +53,18 @@ struct TelegramAPI {
     }
 
     /// Long-poll for updates since `offset`. `timeout` is server-side seconds.
-    func getUpdates(offset: Int, timeout: Int) async -> [[String: Any]] {
+    /// Long-poll for updates. Returns nil on FAILURE (transport error or a
+    /// non-ok response such as 401 invalid-token / 409 conflict) so the caller
+    /// can back off instead of hot-looping; [] means a genuine empty poll.
+    func getUpdates(offset: Int, timeout: Int) async -> [[String: Any]]? {
         let body: [String: Any] = [
             "offset": offset,
             "timeout": timeout,
             "allowed_updates": ["callback_query"],
         ]
         let json = await post("getUpdates", body, requestTimeout: TimeInterval(timeout + 10))
-        return (json?["result"] as? [[String: Any]]) ?? []
+        guard let json, (json["ok"] as? Bool) == true else { return nil }
+        return (json["result"] as? [[String: Any]]) ?? []
     }
 
     // MARK: -

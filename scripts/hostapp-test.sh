@@ -46,6 +46,21 @@ else
   [ -n "$host_comm" ] && pass "host_comm present: $host_comm" || fail "host_comm missing"
 fi
 
+# Regression guard: comm may contain spaces (macOS ps gives a full exe path like
+# "/Applications/Visual Studio Code.app/..."). The walk must reconstruct fields
+# 3..NF, never take a bare $3 (which truncates at the first space).
+if grep -q 'for (i = 3; i <= NF' hooks/notch-notify.sh && ! grep -Eq 'cmd\[\$1\] = \$3( |$)' hooks/notch-notify.sh; then
+  # Behavioural check: the reconstruction preserves a space-containing comm.
+  spaced="$(printf '%s\n' "200 1 /Applications/Visual Studio Code.app/Contents/MacOS/Electron" "400 200 claude" \
+    | awk -v start=400 '{ pid[$1]=$2; c=""; for(i=3;i<=NF;i++) c=c (i>3?" ":"") $i; cmd[$1]=c }
+        END { p=start; for(i=0;i<40;i++){ pp=pid[p]; if(pp==""||pp==0) break; if(pp==1){printf "%s",cmd[p];break} p=pp } }')"
+  [ "$spaced" = "/Applications/Visual Studio Code.app/Contents/MacOS/Electron" ] \
+    && pass "comm reconstruction preserves spaces (no \$3 truncation)" \
+    || fail "spaced comm mangled: $spaced"
+else
+  fail "hook reverted to bare \$3 comm (would truncate app paths with spaces)"
+fi
+
 echo
 [ "$FAILED" = "0" ] && echo "hostapp test passed" || echo "HOSTAPP TEST FAILED"
 exit "$FAILED"

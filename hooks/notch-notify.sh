@@ -20,7 +20,10 @@ if command -v jq >/dev/null 2>&1; then
   snapshot="$(ps -axo pid=,ppid=,comm= 2>/dev/null || true)"
   if [ -n "${snapshot}" ]; then
     host="$(printf '%s\n' "${snapshot}" | awk -v start="$$" '
-      { pid[$1] = $2; cmd[$1] = $3 }
+      # comm (macOS ps) is a full exe path that may contain spaces, so
+      # reconstruct it from field 3..NF rather than taking $3 (which truncates
+      # e.g. "/Applications/Visual Studio Code.app/..." at the first space).
+      { pid[$1] = $2; c = ""; for (i = 3; i <= NF; i++) c = c (i > 3 ? " " : "") $i; cmd[$1] = c }
       END {
         p = start
         for (i = 0; i < 40; i++) {

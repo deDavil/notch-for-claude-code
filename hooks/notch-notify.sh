@@ -12,6 +12,34 @@ token=""
 [ -r "${TOKEN_FILE}" ] && token="$(cat "${TOKEN_FILE}" 2>/dev/null || true)"
 input="$(cat 2>/dev/null || true)"
 
+# Attach the hosting GUI app (Terminal / iTerm / VS Code / …) by walking this
+# script's process ancestry up to launchd: the last ancestor before pid 1 is
+# the app that owns this Claude session. Powers the cockpit's jump-to-session.
+# Best-effort: any failure leaves the payload untouched.
+if command -v jq >/dev/null 2>&1; then
+  snapshot="$(ps -axo pid=,ppid=,comm= 2>/dev/null || true)"
+  if [ -n "${snapshot}" ]; then
+    host="$(printf '%s\n' "${snapshot}" | awk -v start="$$" '
+      { pid[$1] = $2; cmd[$1] = $3 }
+      END {
+        p = start
+        for (i = 0; i < 40; i++) {
+          pp = pid[p]
+          if (pp == "" || pp == 0) break
+          if (pp == 1) { printf "%s\t%s", p, cmd[p]; break }
+          p = pp
+        }
+      }')"
+    if [ -n "${host}" ]; then
+      host_pid="${host%%	*}"
+      host_comm="${host#*	}"
+      augmented="$(printf '%s' "${input}" | jq -c --argjson hp "${host_pid}" --arg hc "${host_comm}" \
+        '. + {host_pid: $hp, host_comm: $hc}' 2>/dev/null || true)"
+      [ -n "${augmented}" ] && input="${augmented}"
+    fi
+  fi
+fi
+
 # Background subshell: the hook returns instantly; the POST completes on its own.
 (
   printf '%s' "${input}" | curl -sS --connect-timeout 1 --max-time 3 \

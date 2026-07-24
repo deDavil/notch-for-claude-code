@@ -30,6 +30,7 @@ enum SelfTest {
             testDecisionLogRecord()
             testProjectRules()
             testPausedFallsThrough()
+            testHostAppTracking()
         }
         if failures == 0 {
             print("SELFTEST: all passed")
@@ -229,6 +230,28 @@ enum SelfTest {
         auto.remember(payload: payload(#"{"tool_name":"Bash","session_id":"s1","tool_input":{"command":"ls"}}"#))
         check(!auto.matches(payload(#"{"tool_name":"Bash","session_id":"s2","tool_input":{"command":"ls"}}"#)),
               "auto-allow is session-scoped")
+    }
+
+    @MainActor private static func testHostAppTracking() {
+        // App-name derivation from process comm paths.
+        let terminal = SessionRegistry.appName(fromComm: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal")
+        let vscode = SessionRegistry.appName(fromComm: "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper.app/Contents/MacOS/Code Helper")
+        let bare = SessionRegistry.appName(fromComm: "/usr/local/bin/wezterm")
+
+        // Registry stores host info from an augmented notify payload.
+        let reg = SessionRegistry()
+        reg.noteEvent(payload(#"{"hook_event_name":"SessionStart","session_id":"h1","cwd":"/x/p","host_pid":4242,"host_comm":"/Applications/iTerm.app/Contents/MacOS/iTerm2"}"#))
+        let stored = reg.sessions.first
+        // A later event without host info must not erase it.
+        reg.noteEvent(payload(#"{"hook_event_name":"UserPromptSubmit","session_id":"h1","cwd":"/x/p"}"#))
+        let kept = reg.sessions.first
+
+        check(terminal == "Terminal"
+              && vscode == "Visual Studio Code"
+              && bare == "wezterm"
+              && stored?.hostPid == 4242 && stored?.hostApp == "iTerm"
+              && kept?.hostPid == 4242,
+              "host-app tracking: name derivation + registry stores and keeps host pid")
     }
 
     @MainActor private static func testPausedFallsThrough() {

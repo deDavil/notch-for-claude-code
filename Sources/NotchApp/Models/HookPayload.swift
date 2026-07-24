@@ -21,6 +21,10 @@ struct HookPayload: Codable, Sendable {
     let message: String?
     let lastAssistantMessage: String?
 
+    // Hosting GUI app, attached by notch-notify.sh from process ancestry.
+    let hostPid: Int?
+    let hostComm: String?
+
     enum CodingKeys: String, CodingKey {
         case hookEventName = "hook_event_name"
         case sessionId = "session_id"
@@ -33,6 +37,8 @@ struct HookPayload: Codable, Sendable {
         case notificationType = "notification_type"
         case message
         case lastAssistantMessage = "last_assistant_message"
+        case hostPid = "host_pid"
+        case hostComm = "host_comm"
     }
 
     /// A short, human label for the session: the basename of its cwd, else a

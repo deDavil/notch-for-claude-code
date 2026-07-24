@@ -33,6 +33,10 @@ struct SessionInfo: Identifiable {
     var baseState: SessionState
     var pending: Int          // outstanding permission requests
     var lastActivity: Date
+    /// Hosting GUI app (Terminal / iTerm / VS Code …), from the notify hook's
+    /// process-ancestry walk. Enables cockpit jump-to-session.
+    var hostPid: Int?
+    var hostApp: String?      // display name derived from host_comm
 
     /// A pending approval always outranks the event-derived base state.
     var displayState: SessionState { pending > 0 ? .waitingApproval : baseState }

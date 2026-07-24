@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Colour for a session state, shared by the pill dot and cockpit rows.
@@ -45,22 +46,47 @@ struct CockpitView: View {
     }
 
     private func row(_ s: SessionInfo) -> some View {
-        HStack(spacing: 9) {
-            Circle().fill(StateColor.of(s.displayState)).frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(s.label).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                Text("\(s.displayState.label) · \(Self.relative(s.lastActivity))")
-                    .font(.system(size: 10)).foregroundStyle(.secondary)
+        Button {
+            jump(to: s)
+        } label: {
+            HStack(spacing: 9) {
+                Circle().fill(StateColor.of(s.displayState)).frame(width: 8, height: 8)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(s.label).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                    Text(subtitle(s))
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                if s.pending > 0 {
+                    Text("\(s.pending)").font(.system(size: 10, weight: .bold)).foregroundStyle(.orange)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(Capsule().fill(.orange.opacity(0.15)))
+                }
+                if s.hostPid != nil {
+                    Image(systemName: "arrow.up.forward.app")
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
             }
-            Spacer(minLength: 0)
-            if s.pending > 0 {
-                Text("\(s.pending)").font(.system(size: 10, weight: .bold)).foregroundStyle(.orange)
-                    .padding(.horizontal, 6).padding(.vertical, 1)
-                    .background(Capsule().fill(.orange.opacity(0.15)))
-            }
+            .padding(.vertical, 5).padding(.horizontal, 9)
+            .background(RoundedRectangle(cornerRadius: 9).fill(.white.opacity(0.04)))
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 5).padding(.horizontal, 9)
-        .background(RoundedRectangle(cornerRadius: 9).fill(.white.opacity(0.04)))
+        .buttonStyle(.plain)
+        .help(s.hostPid != nil ? "Jump to \(s.hostApp ?? "session")" : "Hosting app unknown")
+    }
+
+    private func subtitle(_ s: SessionInfo) -> String {
+        var parts = ["\(s.displayState.label) · \(Self.relative(s.lastActivity))"]
+        if let app = s.hostApp { parts.append(app) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Activate the GUI app hosting this session (from the hook's ancestry walk).
+    private func jump(to s: SessionInfo) {
+        guard let pid = s.hostPid,
+              let app = NSRunningApplication(processIdentifier: pid_t(pid)) else { return }
+        app.activate(options: [.activateIgnoringOtherApps])
+        registry.cockpitOpen = false
     }
 
     private static func relative(_ date: Date) -> String {

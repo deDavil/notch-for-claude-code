@@ -48,6 +48,10 @@ final class SessionRegistry: ObservableObject {
         }
         var s = session(for: sid, seed: p)
         if let cwd = p.cwd, !cwd.isEmpty { s.cwd = cwd; s.label = p.sessionLabel }
+        if let pid = p.hostPid {
+            s.hostPid = pid
+            s.hostApp = Self.appName(fromComm: p.hostComm)
+        }
         s.lastActivity = Date()
         switch p.hookEventName {
         case "SessionStart": s.baseState = .idle
@@ -83,7 +87,20 @@ final class SessionRegistry: ObservableObject {
     private func session(for id: String, seed p: HookPayload) -> SessionInfo {
         sessions.first(where: { $0.id == id })
             ?? SessionInfo(id: id, label: p.sessionLabel, cwd: p.cwd,
-                           baseState: .idle, pending: 0, lastActivity: Date())
+                           baseState: .idle, pending: 0, lastActivity: Date(),
+                           hostPid: nil, hostApp: nil)
+    }
+
+    /// "…/Visual Studio Code.app/Contents/…/Electron" → "Visual Studio Code";
+    /// "/System/Applications/Utilities/Terminal.app/…" → "Terminal"; else basename.
+    static func appName(fromComm comm: String?) -> String? {
+        guard let comm, !comm.isEmpty else { return nil }
+        if let range = comm.range(of: ".app/") ?? comm.range(of: ".app", options: .backwards) {
+            let head = String(comm[..<range.lowerBound])
+            let name = (head as NSString).lastPathComponent
+            if !name.isEmpty { return name }
+        }
+        return (comm as NSString).lastPathComponent
     }
 
     private func upsert(_ s: SessionInfo) {

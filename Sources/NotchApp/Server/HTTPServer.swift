@@ -43,6 +43,10 @@ final class HTTPServer {
     private let queue = DispatchQueue(label: "com.atvereklavs.notch.http")
     private var listener: NWListener?
 
+    /// Fired (once, on the main queue) if the listener fails — e.g. the port is
+    /// already bound. The app decides whether to exit.
+    var onFailure: ((Error) -> Void)?
+
     init(port: UInt16, router: @escaping Router) {
         self.port = port
         self.router = router
@@ -59,10 +63,12 @@ final class HTTPServer {
         listener.newConnectionHandler = { [weak self] conn in
             self?.accept(conn)
         }
-        listener.stateUpdateHandler = { state in
+        listener.stateUpdateHandler = { [weak self] state in
             switch state {
-            case .ready: Log.server.info("listening on 127.0.0.1:\(self.port)")
-            case .failed(let e): Log.server.error("listener failed: \(String(describing: e))")
+            case .ready: Log.server.info("listening on 127.0.0.1:\(self?.port ?? 0)")
+            case .failed(let e):
+                Log.server.error("listener failed: \(String(describing: e))")
+                DispatchQueue.main.async { self?.onFailure?(e) }
             default: break
             }
         }

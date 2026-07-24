@@ -112,10 +112,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server = HTTPServer(port: settings.port) { [weak self] req, client in
             self?.router.handle(req, client)
         }
+        // Port already bound (launchd instance + manual open is the common case):
+        // if a healthy sibling is serving, this copy is redundant — exit 0 so
+        // launchd doesn't restart-loop it. A foreign squatter gets a loud line.
+        server.onFailure = { [weak self] error in
+            self?.handleServerFailure(error)
+        }
         do {
             try server.start()
         } catch {
             Log.app.error("server failed to start: \(String(describing: error))")
+            handleServerFailure(error)
         }
 
         setupStatusItem()
@@ -248,5 +255,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+
+    /// The listener could not bind. Probe the port: a healthy sibling instance →
+    /// exit quietly (it wins); anything else → loud stderr + exit. Exit code 0
+    /// keeps launchd (KeepAlive SuccessfulExit=false) from restart-looping us.
+    private func handleServerFailure(_ error: Error) {
+        let port = settings.port
+        var req = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/v1/health")!)
+        req.timeoutInterval = 2
+        URLSession.shared.dataTask(with: req) { data, _, _ in
+            let healthy = data.flatMap { String(data: $0, encoding: .utf8) }?.contains("\"ok\":true") ?? false
+            let msg = healthy
+                ? "notch: another instance is already serving on 127.0.0.1:\(port) — exiting.\n"
+                : "notch: cannot bind 127.0.0.1:\(port) (occupied by another process?): \(error). Exiting.\n"
+            FileHandle.standardError.write(Data(msg.utf8))
+            Log.app.error("\(msg, privacy: .public)")
+            DispatchQueue.main.async { exit(0) }
+        }.resume()
     }
 }

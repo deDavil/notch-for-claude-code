@@ -11,7 +11,7 @@ enum HookResponse {
         switch decision {
         case .noOpinion:
             return nil
-        case .allow, .allowForSession:
+        case .allow, .allowForSession, .allowForProject:
             return allow(event: event, toolInput: payload.toolInput)
         case .answer(let answers):
             // Approve AskUserQuestion with the chosen answers merged into the input.

@@ -28,6 +28,7 @@ enum SelfTest {
             testAutoAllowSessionScoped()
             testSessionRegistry()
             testDecisionLogRecord()
+            testProjectRules()
         }
         if failures == 0 {
             print("SELFTEST: all passed")
@@ -227,6 +228,32 @@ enum SelfTest {
         auto.remember(payload: payload(#"{"tool_name":"Bash","session_id":"s1","tool_input":{"command":"ls"}}"#))
         check(!auto.matches(payload(#"{"tool_name":"Bash","session_id":"s2","tool_input":{"command":"ls"}}"#)),
               "auto-allow is session-scoped")
+    }
+
+    @MainActor private static func testProjectRules() {
+        let tmp = NSTemporaryDirectory() + "notch-rules-\(ProcessInfo.processInfo.processIdentifier).json"
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+        setenv("NOTCH_RULES_FILE", tmp, 1)
+        defer { unsetenv("NOTCH_RULES_FILE") }
+
+        let a = ProjectRuleStore()
+        a.remember(payload: payload(#"{"cwd":"/x/projA","tool_name":"Bash","tool_input":{"command":"git push origin"}}"#))
+        let sameProject = a.matches(payload(#"{"cwd":"/x/projA","tool_name":"Bash","tool_input":{"command":"git pull"}}"#))
+        let otherProject = a.matches(payload(#"{"cwd":"/x/projB","tool_name":"Bash","tool_input":{"command":"git push"}}"#))
+
+        // Fresh store instance → rules must survive (persistence round-trip).
+        let b = ProjectRuleStore()
+        let persisted = b.matches(payload(#"{"cwd":"/x/projA","tool_name":"Bash","tool_input":{"command":"git status"}}"#))
+
+        // Enqueue short-circuits on a project rule.
+        let store = makeStore()
+        store.projectRules = b
+        var body: Data? = nil
+        let id = store.enqueue(payload: payload(#"{"hook_event_name":"PermissionRequest","session_id":"s9","cwd":"/x/projA","tool_name":"Bash","tool_input":{"command":"git fetch"}}"#)) { body = $0 }
+        let short = id == nil && body != nil
+
+        check(sameProject && !otherProject && persisted && short,
+              "project rules: scoped, persistent, short-circuit enqueue")
     }
 
     @MainActor private static func testDecisionLogRecord() {

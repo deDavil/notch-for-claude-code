@@ -23,6 +23,7 @@ final class RequestStore: ObservableObject {
     var onOutcome: ((PendingRequest, Decision?, DecisionSource) -> Void)?
 
     var autoAllow: AutoAllowStore?
+    var projectRules: ProjectRuleStore?
 
     init(settings: AppSettings) {
         self.settings = settings
@@ -37,8 +38,10 @@ final class RequestStore: ObservableObject {
     func enqueue(payload: HookPayload, respond: @escaping (Data?) -> Void) -> UUID? {
         let request = PendingRequest(payload: payload, receivedAt: Date(), respond: respond)
 
-        if let autoAllow, autoAllow.matches(payload) {
-            Log.store.info("auto-allow match for \(payload.toolName ?? "?", privacy: .public)")
+        let sessionHit = autoAllow?.matches(payload) ?? false
+        let projectHit = projectRules?.matches(payload) ?? false
+        if sessionHit || projectHit {
+            Log.store.info("auto-allow (\(projectHit ? "project" : "session", privacy: .public)) for \(payload.toolName ?? "?", privacy: .public)")
             let body = HookResponse.body(for: .allow, payload: payload)
             request.fulfil(with: body)
             onOutcome?(request, .allow, .autoAllow)
@@ -62,6 +65,9 @@ final class RequestStore: ObservableObject {
 
         if case .allowForSession = decision {
             autoAllow?.remember(payload: request.payload)
+        }
+        if case .allowForProject = decision {
+            projectRules?.remember(payload: request.payload)
         }
 
         let body = HookResponse.body(for: decision, payload: request.payload)

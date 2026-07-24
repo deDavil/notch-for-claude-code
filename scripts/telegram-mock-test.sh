@@ -96,13 +96,15 @@ echo "$resp" | grep -q '"behavior":"allow"' \
 sleep 1  # let settle() fire editMessageText
 calls="$STATE/calls.jsonl"
 grep -q '"method": "sendMessage"' "$calls" && pass "announce sent sendMessage" || fail "no sendMessage"
-python3 - "$calls" <<'PY' && pass "sendMessage carried 3 inline buttons" || fail "buttons missing"
+python3 - "$calls" <<'PY' && pass "sendMessage carried Approve/Deny + Session/Always rows" || fail "buttons missing"
 import json,sys
 for line in open(sys.argv[1]):
     c=json.loads(line)
     if c["method"]=="sendMessage":
-        btns=c["body"]["reply_markup"]["inline_keyboard"][0]
-        sys.exit(0 if len(btns)==3 else 1)
+        rows=c["body"]["reply_markup"]["inline_keyboard"]
+        total=sum(len(r) for r in rows)
+        verbs={b["callback_data"].rsplit(":",1)[-1] for r in rows for b in r}
+        sys.exit(0 if total==4 and verbs=={"allow","deny","session","project"} else 1)
 sys.exit(1)
 PY
 grep -q '"method": "editMessageText"' "$calls" && pass "settle edited the message" || fail "no editMessageText"

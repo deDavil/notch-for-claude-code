@@ -69,8 +69,11 @@ final class TelegramRelay {
         } else {
             rows.append([
                 TelegramAPI.InlineButton(text: "✅ Approve", callbackData: "req:\(idStr):allow"),
-                TelegramAPI.InlineButton(text: "♻️ Session", callbackData: "req:\(idStr):session"),
                 TelegramAPI.InlineButton(text: "⛔️ Deny", callbackData: "req:\(idStr):deny"),
+            ])
+            rows.append([
+                TelegramAPI.InlineButton(text: "♻️ Session", callbackData: "req:\(idStr):session"),
+                TelegramAPI.InlineButton(text: "📌 Always (project)", callbackData: "req:\(idStr):project"),
             ])
         }
 
@@ -143,6 +146,7 @@ final class TelegramRelay {
         switch parts[2] {
         case "allow": decision = .allow
         case "session": decision = .allowForSession
+        case "project": decision = .allowForProject
         case "deny": decision = .deny(reason: "Denied from iPhone")
         case "opt":
             // Answer an AskUserQuestion: map the option index → its label.
@@ -220,6 +224,7 @@ final class TelegramRelay {
         switch decision {
         case .allow: return "✅ Approved\(from)"
         case .allowForSession: return "✅ Approved · whole session\(from)"
+        case .allowForProject: return "✅ Approved · always in this project\(from)"
         case .answer(let answers):
             let picked = answers.values.joined(separator: ", ")
             return "✅ Answered: <b>\(esc(picked))</b>\(from)"

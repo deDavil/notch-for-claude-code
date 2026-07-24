@@ -264,6 +264,11 @@ struct RequestCardView: View {
             Button { onDecision(.allowForSession, .notch) } label: {
                 Text("Session").frame(maxWidth: .infinity)
             }.keyboardShortcut("s", modifiers: [])
+            .help("Allow this for the rest of this session")
+            Button { onDecision(.allowForProject, .notch) } label: {
+                Label("Always", systemImage: "pin").frame(maxWidth: .infinity)
+            }.keyboardShortcut("p", modifiers: [])
+            .help("Always allow this in this project (persists)")
             Button { onDecision(.allow, .notch) } label: {
                 Label("Allow", systemImage: "checkmark").frame(maxWidth: .infinity)
             }.tint(.green).keyboardShortcut(.defaultAction)

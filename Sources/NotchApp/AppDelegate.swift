@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var store: RequestStore!
     private var registry: SessionRegistry!
     private var autoAllow: AutoAllowStore!
+    private var projectRules: ProjectRuleStore!
     private var router: Router!
     private var server: HTTPServer!
     private var statusItem: NSStatusItem!
@@ -17,9 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         autoAllow = AutoAllowStore()
+        projectRules = ProjectRuleStore()
         registry = SessionRegistry()
         store = RequestStore(settings: settings)
         store.autoAllow = autoAllow
+        store.projectRules = projectRules
 
         // Hotkeys resolve the front request (registered only while pending).
         hotKeys.onAction = { [weak self] action in
@@ -140,6 +143,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clear.isEnabled = rules > 0
         menu.addItem(clear)
 
+        let projects = projectRules.count
+        let clearProj = NSMenuItem(title: "Clear project rules (\(projects))",
+                                   action: #selector(clearProjectRules), keyEquivalent: "")
+        clearProj.target = self
+        clearProj.isEnabled = projects > 0
+        menu.addItem(clearProj)
+
         let log = NSMenuItem(title: "Open decision log",
                              action: #selector(openDecisionLog), keyEquivalent: "")
         log.target = self
@@ -160,6 +170,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func clearRules() {
         autoAllow.clearAll()
+    }
+
+    @objc private func clearProjectRules() {
+        projectRules.clearAll()
     }
 
     @objc private func openDecisionLog() {

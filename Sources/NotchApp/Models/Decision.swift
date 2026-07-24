@@ -16,6 +16,8 @@ enum Decision: Sendable {
     case allow
     /// Approve and remember an auto-allow rule for this session.
     case allowForSession
+    /// Approve and persist an always-allow rule for this project (survives restarts).
+    case allowForProject
     /// Deny with a message shown to Claude.
     case deny(reason: String)
     /// Answer an AskUserQuestion: approve and pre-fill `answers` (question text →

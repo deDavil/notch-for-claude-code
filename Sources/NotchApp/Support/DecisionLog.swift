@@ -30,6 +30,7 @@ enum DecisionLog {
         switch decision {
         case .allow: rec["decision"] = "allow"
         case .allowForSession: rec["decision"] = "allow_for_session"
+        case .allowForProject: rec["decision"] = "allow_for_project"
         case .deny(let reason): rec["decision"] = "deny"; rec["reason"] = reason
         case .answer(let answers):
             rec["decision"] = "answer"

@@ -8,6 +8,7 @@ enum DecisionSource: String, Sendable {
     case autoAllow
     case timeout
     case clientDropped
+    case paused
 }
 
 /// A resolved verdict on a pending permission request.

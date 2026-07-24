@@ -5,9 +5,11 @@ import SwiftUI
 struct CollapsedView: View {
     var pendingCount: Int
     var aggregate: SessionState? = nil
+    var paused: Bool = false
     var cornerRadius: CGFloat = 10
 
     private var dotColor: Color {
+        if paused { return .gray.opacity(0.6) }
         if pendingCount > 0 { return .orange }
         if let aggregate { return StateColor.of(aggregate) }
         return .green.opacity(0.5)

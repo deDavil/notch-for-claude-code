@@ -129,6 +129,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(withTitle: "Notch — Claude Code companion", action: nil, keyEquivalent: "")
         menu.addItem(.separator())
 
+        let pause = NSMenuItem(
+            title: store.paused ? "Resume approvals" : "Pause approvals (answer in terminal)",
+            action: #selector(togglePause), keyEquivalent: "p")
+        pause.target = self
+        pause.state = store.paused ? .on : .off
+        menu.addItem(pause)
+        menu.addItem(.separator())
+
         let pending = store.pending.count
         menu.addItem(withTitle: pending == 0 ? "No pending requests" : "\(pending) pending",
                      action: nil, keyEquivalent: "")
@@ -199,6 +207,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func revokeRule(_ sender: NSMenuItem) {
         guard let rule = sender.representedObject as? ProjectRuleStore.Rule else { return }
         projectRules.remove(rule)
+    }
+
+    @objc private func togglePause() {
+        store.paused.toggle()
+        if let button = statusItem?.button {
+            button.appearsDisabled = store.paused
+        }
     }
 
     @objc private func openDecisionLog() {

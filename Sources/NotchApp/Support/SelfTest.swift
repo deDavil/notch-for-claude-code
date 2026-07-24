@@ -29,6 +29,7 @@ enum SelfTest {
             testSessionRegistry()
             testDecisionLogRecord()
             testProjectRules()
+            testPausedFallsThrough()
         }
         if failures == 0 {
             print("SELFTEST: all passed")
@@ -228,6 +229,30 @@ enum SelfTest {
         auto.remember(payload: payload(#"{"tool_name":"Bash","session_id":"s1","tool_input":{"command":"ls"}}"#))
         check(!auto.matches(payload(#"{"tool_name":"Bash","session_id":"s2","tool_input":{"command":"ls"}}"#)),
               "auto-allow is session-scoped")
+    }
+
+    @MainActor private static func testPausedFallsThrough() {
+        let store = makeStore()
+        store.paused = true
+        var body: Data? = Data("sentinel".utf8)
+        var outcomeSource: DecisionSource?
+        var enqueued = false
+        store.onEnqueue = { _ in enqueued = true }
+        store.onOutcome = { _, _, s in outcomeSource = s }
+        let id = store.enqueue(payload: payload(#"{"tool_name":"Bash","session_id":"s","tool_input":{"command":"secret deploy"}}"#)) { body = $0 }
+        let pausedOk = id == nil && body == nil && store.pending.isEmpty
+            && !enqueued && outcomeSource == .paused
+
+        // Toasts are suppressed while paused; resume restores normal flow.
+        store.showToast(Toast(text: "x", icon: "bell"))
+        let noToast = store.toast == nil
+        store.paused = false
+        var normalCalled = false
+        let id2 = store.enqueue(payload: payload(#"{"tool_name":"Bash","session_id":"s","tool_input":{"command":"ls"}}"#)) { _ in normalCalled = true }
+        let resumed = id2 != nil && store.pending.count == 1
+        if let id2 { store.resolve(id: id2, decision: .allow, source: .notch) }
+        check(pausedOk && noToast && resumed && normalCalled,
+              "privacy pause: silent terminal fallback, no announce, resume works")
     }
 
     @MainActor private static func testProjectRules() {

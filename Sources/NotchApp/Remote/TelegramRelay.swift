@@ -239,7 +239,7 @@ final class TelegramRelay {
         case .hotkey: return " · from Mac (hotkey)"
         case .telegram: return " · from iPhone"
         case .autoAllow: return " · auto (session rule)"
-        case .timeout, .clientDropped: return ""
+        case .timeout, .clientDropped, .paused: return ""
         }
     }
 

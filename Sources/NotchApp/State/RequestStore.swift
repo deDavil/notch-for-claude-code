@@ -9,6 +9,9 @@ import Combine
 final class RequestStore: ObservableObject {
     @Published private(set) var pending: [PendingRequest] = []
     @Published private(set) var toast: Toast?
+    /// Privacy pause: while true, every request falls straight through to the
+    /// terminal (noOpinion), nothing is displayed or announced anywhere.
+    @Published var paused = false
 
     private let settings: AppSettings
     private var timeouts: [UUID: DispatchWorkItem] = [:]
@@ -37,6 +40,15 @@ final class RequestStore: ObservableObject {
     @discardableResult
     func enqueue(payload: HookPayload, respond: @escaping (Data?) -> Void) -> UUID? {
         let request = PendingRequest(payload: payload, receivedAt: Date(), respond: respond)
+
+        // Privacy pause: silently hand the decision back to the terminal.
+        // Checked BEFORE auto-allow so nothing at all happens on this machine's
+        // screen or the phone while paused.
+        if paused {
+            request.fulfil(with: nil)
+            onOutcome?(request, .noOpinion, .paused)
+            return nil
+        }
 
         let sessionHit = autoAllow?.matches(payload) ?? false
         let projectHit = projectRules?.matches(payload) ?? false
@@ -94,9 +106,10 @@ final class RequestStore: ObservableObject {
         autoAllow?.clearSession(sessionId)
     }
 
-    /// Show a passive toast for a few seconds (suppressed while a card is up).
+    /// Show a passive toast for a few seconds (suppressed while a card is up
+    /// and while paused).
     func showToast(_ toast: Toast?, duration: TimeInterval = 4) {
-        guard let toast else { return }
+        guard let toast, !paused else { return }
         self.toast = toast
         toastClear?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.toast = nil }

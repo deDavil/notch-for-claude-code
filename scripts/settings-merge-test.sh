@@ -73,6 +73,21 @@ echo '{"permissions":{"allow":[]}}' > "$TMP/nohooks.json"
 merge "$TMP/nohooks.json" > "$TMP/nh1.json" 2>/dev/null
 [ "$(jq '.hooks.PermissionRequest | length' "$TMP/nh1.json")" = "1" ] && pass "merge into hook-less settings" || fail "hook-less merge failed"
 
+# 5. JSONC (commented) settings: install.sh's pre-check must reject them so the
+#    installer bails safely instead of dying on an opaque jq error. Guard the
+#    guard: valid JSON passes `jq empty`, JSONC fails it, and the JSONC file is
+#    never rewritten.
+printf '{\n  // a comment\n  "hooks": {}\n}\n' > "$TMP/jsonc.json"
+jsonc_before="$(cat "$TMP/jsonc.json")"
+if jq empty "$TMP/jsonc.json" >/dev/null 2>&1; then
+  fail "JSONC unexpectedly parsed by jq (guard would not trigger)"
+else
+  pass "JSONC settings rejected by the pre-check (installer bails safely)"
+fi
+echo '{"hooks":{}}' > "$TMP/plain.json"
+jq empty "$TMP/plain.json" >/dev/null 2>&1 && pass "plain JSON passes the pre-check" || fail "plain JSON rejected"
+[ "$(cat "$TMP/jsonc.json")" = "$jsonc_before" ] && pass "JSONC file left untouched" || fail "JSONC file was modified"
+
 echo
 [ "$FAILED" = "0" ] && echo "settings merge test passed" || echo "SETTINGS MERGE TEST FAILED"
 exit "$FAILED"

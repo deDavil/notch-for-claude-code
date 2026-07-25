@@ -70,6 +70,26 @@ CURRENT="{}"
 if [[ -f "$SETTINGS" ]]; then
   cp "$SETTINGS" "${SETTINGS}.bak.$(date +%Y%m%d-%H%M%S)"
   CURRENT="$(cat "$SETTINGS")"
+
+  # jq is strict JSON; Claude Code also accepts JSONC (comments). If the file
+  # doesn't parse, bail BEFORE touching anything and tell the user exactly how
+  # to proceed, rather than dying on an opaque jq error.
+  if ! printf '%s' "$CURRENT" | jq empty >/dev/null 2>&1; then
+    cat >&2 <<MSG
+ERROR: ${SETTINGS} is not plain JSON (it may contain // comments — JSONC).
+This installer merges with jq, which can't parse comments. Your settings were
+NOT modified. Either remove the comments and re-run, or add these two hooks
+manually to the "hooks" object:
+
+  "PermissionRequest": [ { "matcher": "*", "hooks": [ { "type": "command", "command": "${PERM_CMD}", "timeout": 600 } ] } ],
+  "Stop":              [ { "matcher": "",  "hooks": [ { "type": "command", "command": "${NOTIFY_CMD}" } ] } ]
+
+The app, hook scripts, and token were installed. The settings merge and the
+autostart/launch step were NOT done — re-run install.sh once the settings parse
+as plain JSON (or add the hooks above by hand) to finish.
+MSG
+    exit 1
+  fi
 fi
 
 MERGED="$(printf '%s' "$CURRENT" | jq \

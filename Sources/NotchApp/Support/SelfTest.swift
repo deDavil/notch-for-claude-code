@@ -8,6 +8,7 @@ enum SelfTest {
 
     static func run() -> Never {
         testJSONValueRoundTrip()
+        testUpdatedInputNumberFidelity()
         testPermissionAllowEchoesInput()
         testPermissionDenyCarriesMessage()
         testPreToolUseAllow()
@@ -69,6 +70,20 @@ enum SelfTest {
         let r = (try? JSONSerialization.jsonObject(with: out)) as? [String: Any]
         check(r?["command"] as? String == "echo hi" && r?["n"] as? Int == 3 && r?["flag"] as? Bool == true,
               "JSONValue round-trip fidelity")
+    }
+
+    private static func testUpdatedInputNumberFidelity() {
+        // The allow-path echoes tool_input verbatim as updatedInput. Assert the
+        // ON-THE-WIRE bytes preserve number TYPES — integers must not become
+        // floats (30, not 30.0), floats stay floats, big ints stay exact.
+        let p = payload(##"{"hook_event_name":"PermissionRequest","tool_name":"X","tool_input":{"timeout":30,"ratio":1.5,"flag":true,"big":1234567890123,"arr":[1,2,3]}}"##)
+        let body = String(data: HookResponse.body(for: .allow, payload: p) ?? Data(), encoding: .utf8) ?? ""
+        check(body.contains("\"timeout\":30") && !body.contains("30.0")
+              && body.contains("\"ratio\":1.5")
+              && body.contains("\"big\":1234567890123")
+              && body.contains("\"flag\":true")
+              && body.contains("[1,2,3]"),
+              "updatedInput preserves number types (int≠float) on the wire")
     }
 
     private static func testPermissionAllowEchoesInput() {

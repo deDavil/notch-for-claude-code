@@ -24,7 +24,17 @@ rm -f "$DEST_PLIST"
 # Kill any running instance.
 pkill -f "${APP_NAME}.app/Contents/MacOS/NotchApp" 2>/dev/null || true
 
-if [[ -f "$SETTINGS" ]]; then
+if [[ -f "$SETTINGS" ]] && ! jq empty "$SETTINGS" >/dev/null 2>&1; then
+  # JSONC (commented) settings: jq can't edit them. Unlike install, DON'T abort —
+  # continue removing the app/scripts so nothing is left half-uninstalled; just
+  # tell the user to delete the two notch hook entries by hand.
+  cat >&2 <<MSG
+NOTE: ${SETTINGS} is not plain JSON (comments/JSONC?) — leaving it untouched.
+If you added the notch hooks manually, remove the two entries whose command
+contains "hooks/notch/" from the "hooks" object. Continuing with the rest of
+the uninstall.
+MSG
+elif [[ -f "$SETTINGS" ]]; then
   echo "==> removing notch hooks from ${SETTINGS}"
   cp "$SETTINGS" "${SETTINGS}.bak.$(date +%Y%m%d-%H%M%S)"
   CLEANED="$(jq '

@@ -55,12 +55,11 @@ echo "==> removing hook scripts ${HOOKS_DIR}"
 rm -rf "$HOOKS_DIR"
 
 if [[ "$PURGE" == "1" ]]; then
-  echo "==> --purge: removing app + token"
+  echo "==> --purge: removing app + all config (token, rules, decision log, telegram)"
   rm -rf "$APP"
-  rm -f "${CFG_DIR}/token"
-  rmdir "$CFG_DIR" 2>/dev/null || true
+  rm -rf "$CFG_DIR"   # token, rules.json, decisions.jsonl, telegram.json — everything
 else
-  echo "    (kept ${APP} and ${CFG_DIR}/token — pass --purge to remove)"
+  echo "    (kept ${APP} and ${CFG_DIR} — pass --purge to remove app + all config)"
 fi
 
 echo "Done. Restart Claude Code sessions to drop the hooks fully."

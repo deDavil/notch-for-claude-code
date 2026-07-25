@@ -16,6 +16,32 @@ Claude Code sessions stall silently when they need a permission decision — the
 prompt sits in a terminal tab the operator isn't looking at. This app makes the
 "Claude needs you" moment glanceable and answerable from the notch or the phone.
 
+## Features
+
+**Decisions**
+- Rich cards per tool: **red/green diff** (Edit/Write/MultiEdit), the full Bash
+  command, working directory, and Claude's stated reason.
+- **AskUserQuestion** → an answer form (single/multi-select options + free text,
+  one Send). **ExitPlanMode** → the plan rendered readably with Approve/Reject.
+- Buttons: **Deny · Session · Always · Allow**, plus **✕** (no opinion → falls
+  back to the terminal prompt). Hotkeys **⌃⌥Y / ⌃⌥N / ⌃⌥U**.
+  - *Session* = auto-approve matching calls for this session; *Always* =
+    persist a per-project rule (menu → *Project rules* to list/revoke).
+- Multi-session FIFO queue with a badge; a Ctrl-C'd session's card drops on its own.
+
+**Telegram mirror** — every prompt also goes to the operator's phone (dedicated
+bot); first answer across devices wins, the message is edited with the outcome.
+
+**Session cockpit** — click the collapsed pill to see every live session
+(needs-approval / waiting / working / idle); click a row to **jump to its
+hosting app** (Terminal / iTerm / VS Code…).
+
+**Privacy** — menu → *Pause approvals* routes everything to the terminal;
+*Auto-pause during calls* does it automatically whenever the mic is in use.
+
+**Audit** — every decision (incl. auto-allows and paused fall-throughs) is
+appended to `~/.config/klavs-notch/decisions.jsonl` (menu → *Open decision log*).
+
 ## Architecture
 
 ```
@@ -140,6 +166,7 @@ com.apple.quarantine "~/Applications/Klavs Notch.app"`.
 | `NOTCH_TOKEN` | shared token; else `~/.config/klavs-notch/token` |
 | `NOTCH_VIRTUAL=1` | force the virtual notch pill (dev on no-notch Macs) |
 | `NOTCH_DIALOG=1` | use an `osascript` dialog instead of the notch UI |
+| `NOTCH_AUTOPAUSE=0` | disable auto-pause-during-calls (mic-in-use) at launch |
 | `NOTCH_AUTO=allow\|deny\|noop` | headless auto-resolve (CI/smoke) |
 | `NOTCH_SELFTEST=1` | run unit self-tests and exit |
 | `NOTCH_TELEGRAM_BASE` | override Bot API base (mock tests) |

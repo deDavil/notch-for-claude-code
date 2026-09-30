@@ -2,6 +2,10 @@
 
 *A macOS notch overlay that makes Claude Code's permission prompts glanceable — and answerable from your phone.*
 
+![A Claude Code permission prompt rendered as a card hanging below the MacBook notch: the project name acme-api, a heading reading Edit server.ts, the working directory, a red/green diff changing the listen port, and four buttons — Deny, Session, Always, Allow.](docs/notch-card.png)
+
+<sub>An `Edit` prompt on the notch: the diff, the working directory, and the four decisions. `⌃⌥Y` / `⌃⌥N` answer it without reaching for the mouse.</sub>
+
 A macOS menu-bar/notch app that surfaces Claude Code's **permission prompts** as a
 native card sliding out of the MacBook notch. Approve/Deny from the notch (or a
 hotkey), and the decision flows back to Claude Code through its hook protocol.

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Assemble a distributable "Klavs Notch.app" from the SwiftPM build — no Xcode.
+# Assemble a distributable "Notch.app" from the SwiftPM build — no Xcode.
 # Steps: release build -> bundle layout -> Info.plist -> lint -> ad-hoc sign -> zip.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP_NAME="Klavs Notch"
-BUNDLE_ID="com.atvereklavs.notch"
+APP_NAME="Notch"
+BUNDLE_ID="io.github.dedavil.notch"
 OUT_DIR="build"
 APP="${OUT_DIR}/${APP_NAME}.app"
 VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.0")"

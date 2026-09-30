@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 
 APP=8805; TG=8806
 STATE="$(mktemp -d)"
-trap 'kill "$MOCK" "$AP" 2>/dev/null; rm -f "$HOME/.config/klavs-notch/telegram.json"; [ -n "${BACKUP:-}" ] && mv "$BACKUP" "$HOME/.config/klavs-notch/telegram.json"; rm -rf "$STATE"' EXIT
+trap 'kill "$MOCK" "$AP" 2>/dev/null; rm -f "$HOME/.config/notch-cc/telegram.json"; [ -n "${BACKUP:-}" ] && mv "$BACKUP" "$HOME/.config/notch-cc/telegram.json"; rm -rf "$STATE"' EXIT
 FAILED=0
 pass() { printf '  \033[32mPASS\033[0m %s\n' "$1"; }
 fail() { printf '  \033[31mFAIL\033[0m %s\n' "$1"; FAILED=1; }
@@ -34,8 +34,8 @@ PY
 python3 "$STATE/mock.py" "$STATE" & MOCK=$!
 sleep 0.4
 
-mkdir -p "$HOME/.config/klavs-notch"
-CFG="$HOME/.config/klavs-notch/telegram.json"
+mkdir -p "$HOME/.config/notch-cc"
+CFG="$HOME/.config/notch-cc/telegram.json"
 [ -f "$CFG" ] && { BACKUP="$CFG.bak.$$"; mv "$CFG" "$BACKUP"; }
 printf '{"token":"bad","chat_id":1,"operator_id":1}' > "$CFG"; chmod 600 "$CFG"
 

@@ -43,7 +43,7 @@ final class HTTPServer {
 
     private let port: UInt16
     private let router: Router
-    private let queue = DispatchQueue(label: "com.atvereklavs.notch.http")
+    private let queue = DispatchQueue(label: "io.github.dedavil.notch.http")
     private var listener: NWListener?
 
     /// Fired (once, on the main queue) if the listener fails — e.g. the port is

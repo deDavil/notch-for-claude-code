@@ -1,7 +1,7 @@
 import Foundation
 
 /// Append-only audit trail of every decision the app makes on the operator's
-/// behalf: one JSON object per line at ~/.config/klavs-notch/decisions.jsonl
+/// behalf: one JSON object per line at ~/.config/notch-cc/decisions.jsonl
 /// (override: NOTCH_DECISION_LOG). Fail-silent — logging must never affect the
 /// approval path.
 enum DecisionLog {
@@ -10,7 +10,7 @@ enum DecisionLog {
             return p
         }
         return (NSHomeDirectory() as NSString)
-            .appendingPathComponent(".config/klavs-notch/decisions.jsonl")
+            .appendingPathComponent(".config/notch-cc/decisions.jsonl")
     }
 
     /// Pure record builder (unit-testable): the JSONL line for one outcome.

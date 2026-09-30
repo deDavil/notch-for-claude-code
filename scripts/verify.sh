@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # One-command verification gate for the notch app: build + unit self-tests +
 # every script-level test suite, with an aggregate pass/fail summary. Run before
-# pushing to feat/notch-app (or wire it as a pre-push hook — see --install-hook).
+# pushing (or wire it as a pre-push hook — see --install-hook).
 #
-#   notch/scripts/verify.sh                 # run everything
-#   notch/scripts/verify.sh --install-hook  # install a git pre-push hook
+#   scripts/verify.sh                 # run everything
+#   scripts/verify.sh --install-hook  # install a git pre-push hook
 #
 # Exits non-zero if any check fails. No external effects; all tests are local.
 set -uo pipefail
@@ -23,7 +23,7 @@ if [ "${1:-}" = "--install-hook" ]; then
   fi
   cat > "$hook" <<HOOK
 #!/usr/bin/env bash
-# Auto-installed by notch/scripts/verify.sh — gate pushes on the notch suite.
+# Auto-installed by scripts/verify.sh — gate pushes on the notch suite.
 exec "$(pwd)/scripts/verify.sh"
 HOOK
   chmod +x "$hook"

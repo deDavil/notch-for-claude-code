@@ -1,4 +1,6 @@
-# notch — Notch-overlay companion for Claude Code
+# Notch for Claude Code
+
+*A macOS notch overlay that makes Claude Code's permission prompts glanceable — and answerable from your phone.*
 
 A macOS menu-bar/notch app that surfaces Claude Code's **permission prompts** as a
 native card sliding out of the MacBook notch. Approve/Deny from the notch (or a
@@ -7,8 +9,15 @@ Every prompt is also mirrored to the operator's iPhone over a dedicated Telegram
 bot — **first answer wins**, whichever device taps first, and the other is
 dismissed. Passive toasts for idle / session-finished notifications.
 
-Target device is a MacBook with a real notch. Development happens on a no-notch
-Mac (this repo's Mac mini) via a virtual-notch fallback pill.
+Target device is a MacBook with a real notch. On a Mac without one, the app
+falls back to a virtual-notch pill, so it develops and runs fine anywhere.
+
+## Requirements
+
+- macOS 14 or later (Apple silicon or Intel)
+- Swift 6.1+ toolchain (Xcode Command Line Tools is enough — no Xcode project)
+- Claude Code, for the hooks to fire against
+- *Optional:* a Telegram bot token, only if you want the phone mirror
 
 ## Why
 
@@ -40,7 +49,7 @@ hosting app** (Terminal / iTerm / VS Code…).
 *Auto-pause during calls* does it automatically whenever the mic is in use.
 
 **Audit** — every decision (incl. auto-allows and paused fall-throughs) is
-appended to `~/.config/klavs-notch/decisions.jsonl` (menu → *Open decision log*).
+appended to `~/.config/notch-cc/decisions.jsonl` (menu → *Open decision log*).
 
 ## Architecture
 
@@ -139,16 +148,16 @@ No Xcode required — pure SwiftPM (Swift 6.1+, macOS 15 SDK) plus a hand-rolled
 
 ```bash
 # dev on a no-notch Mac (virtual notch pill, runs from source)
-notch/scripts/dev-run.sh
+scripts/dev-run.sh
 
-# build a distributable .app bundle  -> notch/build/Klavs Notch.app (+ .zip)
-notch/bundle/make-app.sh
+# build a distributable .app bundle  -> build/Notch.app (+ .zip)
+bundle/make-app.sh
 
 # install on the MacBook (app + hooks + settings merge + LaunchAgent + health check)
-notch/install.sh
+./install.sh
 
 # remove everything (add --purge to also delete the app + token)
-notch/uninstall.sh
+./uninstall.sh
 ```
 
 **Deploy to the MacBook:** build here (or on the MacBook), `scp`/`rsync` the
@@ -156,14 +165,14 @@ notch/uninstall.sh
 `bundle/` over (scp/rsync set no quarantine xattr), then run `install.sh`. Or
 just check out the repo on the MacBook and run `install.sh` (it builds the
 bundle if missing). If Gatekeeper ever complains: `xattr -dr
-com.apple.quarantine "~/Applications/Klavs Notch.app"`.
+com.apple.quarantine "~/Applications/Notch.app"`.
 
 ## Runtime knobs (env)
 
 | Var | Meaning |
 |---|---|
 | `NOTCH_PORT` | loopback port (default 8790); hook scripts honor it too |
-| `NOTCH_TOKEN` | shared token; else `~/.config/klavs-notch/token` |
+| `NOTCH_TOKEN` | shared token; else `~/.config/notch-cc/token` |
 | `NOTCH_VIRTUAL=1` | force the virtual notch pill (dev on no-notch Macs) |
 | `NOTCH_DIALOG=1` | use an `osascript` dialog instead of the notch UI |
 | `NOTCH_AUTOPAUSE=0` | disable auto-pause-during-calls (mic-in-use) at launch |
@@ -174,20 +183,20 @@ com.apple.quarantine "~/Applications/Klavs Notch.app"`.
 ## Tests
 
 ```bash
-notch/scripts/verify.sh                # ← run everything: build + self-tests + all suites (one gate)
-notch/scripts/verify.sh --install-hook # gate every push on the suite (git pre-push hook)
+scripts/verify.sh                # ← run everything: build + self-tests + all suites (one gate)
+scripts/verify.sh --install-hook # gate every push on the suite (git pre-push hook)
 
 # individual suites:
-notch/scripts/smoke-test.sh            # unit self-tests + HTTP protocol (health/allow/403/400)
-notch/scripts/telegram-mock-test.sh    # relay round-trip vs a mock Bot API
-notch/scripts/settings-merge-test.sh   # install/uninstall jq merge: idempotent + clean round-trip
-notch/scripts/hostapp-test.sh          # notify hook attaches hosting-app pid/comm
-notch/scripts/single-instance-test.sh  # duplicate instance exits cleanly, first keeps serving
+scripts/smoke-test.sh            # unit self-tests + HTTP protocol (health/allow/403/400)
+scripts/telegram-mock-test.sh    # relay round-trip vs a mock Bot API
+scripts/settings-merge-test.sh   # install/uninstall jq merge: idempotent + clean round-trip
+scripts/hostapp-test.sh          # notify hook attaches hosting-app pid/comm
+scripts/single-instance-test.sh  # duplicate instance exits cleanly, first keeps serving
 ```
 
-There is no cloud CI for the Mac app (this repo is a private mono-repo without
-GitHub Actions by design); `verify.sh` is the local equivalent — run it before
-pushing, or install it as a pre-push hook.
+There is no cloud CI — the suites drive a real loopback server and a real app
+bundle, so they want a Mac. `verify.sh` is the gate: run it before pushing, or
+install it as a pre-push hook.
 
 ## Layout
 
@@ -216,7 +225,7 @@ Setup (operator, one-time):
    `getUpdates` consumer per token.
 2. Get your numeric user id (e.g. via [@userinfobot](https://t.me/userinfobot))
    and start a chat with your new bot.
-3. Write `~/.config/klavs-notch/telegram.json` (chmod 600):
+3. Write `~/.config/notch-cc/telegram.json` (chmod 600):
    ```json
    { "token": "123456:ABC-…", "chat_id": <your id>, "operator_id": <your id> }
    ```
@@ -226,3 +235,18 @@ Setup (operator, one-time):
 Validated end-to-end against a mock Bot API (`scripts/telegram-mock-test.sh`):
 announce → `sendMessage` (3 buttons) → scripted callback resolves the parked
 permission (allow, first-wins) → `editMessageText` settle → `answerCallbackQuery`.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
+
+## Notes
+
+Not affiliated with, endorsed by, or supported by Anthropic. It talks to Claude
+Code purely through the documented hook protocol, and it is deliberately
+fail-open: if the app is not running, Claude Code prompts in the terminal as
+usual.
+
+The hook behaviour documented above was probed empirically against specific
+Claude Code builds (noted inline). Treat those findings as observations with a
+date on them, not as a stable public contract.

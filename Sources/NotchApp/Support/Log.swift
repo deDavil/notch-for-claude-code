@@ -2,7 +2,7 @@ import Foundation
 import os
 
 enum Log {
-    private static let subsystem = "com.atvereklavs.notch"
+    private static let subsystem = "io.github.dedavil.notch"
 
     static let server = Logger(subsystem: subsystem, category: "server")
     static let store = Logger(subsystem: subsystem, category: "store")

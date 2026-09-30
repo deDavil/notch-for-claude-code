@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 APP_PORT=8795
 TG_PORT=8796
 TOKEN="notch-http-$$"
-CFG_DIR="$HOME/.config/klavs-notch"
+CFG_DIR="$HOME/.config/notch-cc"
 CFG="$CFG_DIR/telegram.json"
 STATE="$(mktemp -d)"
 FAILED=0

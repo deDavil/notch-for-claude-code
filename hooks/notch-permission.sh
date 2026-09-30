@@ -10,7 +10,7 @@
 set -u
 
 PORT="${NOTCH_PORT:-8790}"
-TOKEN_FILE="${HOME}/.config/klavs-notch/token"
+TOKEN_FILE="${HOME}/.config/notch-cc/token"
 token=""
 [ -r "${TOKEN_FILE}" ] && token="$(cat "${TOKEN_FILE}" 2>/dev/null || true)"
 

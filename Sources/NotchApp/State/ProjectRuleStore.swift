@@ -1,7 +1,7 @@
 import Foundation
 
 /// Persistent "always allow in this project" rules. A rule = (project cwd,
-/// tool, pattern) stored as JSON at ~/.config/klavs-notch/rules.json (override:
+/// tool, pattern) stored as JSON at ~/.config/notch-cc/rules.json (override:
 /// NOTCH_RULES_FILE). Unlike AutoAllowStore these survive app restarts and
 /// session ends; scope is the exact working directory, so a rule for one
 /// project never leaks into another. Save failures are logged, never thrown —
@@ -22,7 +22,7 @@ final class ProjectRuleStore {
             path = p
         } else {
             path = (NSHomeDirectory() as NSString)
-                .appendingPathComponent(".config/klavs-notch/rules.json")
+                .appendingPathComponent(".config/notch-cc/rules.json")
         }
         load()
     }

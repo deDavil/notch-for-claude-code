@@ -4,9 +4,9 @@
 # unpacked distribution folder containing build/, hooks/, and launchd/.
 #
 # Does five things:
-#   1. copy "Klavs Notch.app" -> ~/Applications
+#   1. copy "Notch.app" -> ~/Applications
 #   2. copy hook scripts       -> ~/.claude/hooks/notch/
-#   3. ensure a shared token   -> ~/.config/klavs-notch/token   (app + hooks read it)
+#   3. ensure a shared token   -> ~/.config/notch-cc/token   (app + hooks read it)
 #   4. MERGE hook registration -> ~/.claude/settings.json       (backup + validate)
 #   5. install + bootstrap the LaunchAgent, then health-check
 #
@@ -14,15 +14,15 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="Klavs Notch"
-LABEL="com.atvereklavs.notch"
+APP_NAME="Notch"
+LABEL="io.github.dedavil.notch"
 
 APPS_DIR="${HOME}/Applications"
 HOOKS_DIR="${HOME}/.claude/hooks/notch"
-CFG_DIR="${HOME}/.config/klavs-notch"
+CFG_DIR="${HOME}/.config/notch-cc"
 SETTINGS="${HOME}/.claude/settings.json"
 LA_DIR="${HOME}/Library/LaunchAgents"
-LOG_DIR="${HOME}/Library/Logs/klavs-notch"
+LOG_DIR="${HOME}/Library/Logs/notch-cc"
 DEST_PLIST="${LA_DIR}/${LABEL}.plist"
 
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required for the safe settings.json merge." >&2; exit 1; }

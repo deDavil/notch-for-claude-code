@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Klavs Notch</string>
+    <string>Notch</string>
     <key>CFBundleDisplayName</key>
-    <string>Klavs Notch</string>
+    <string>Notch for Claude Code</string>
     <key>CFBundleIdentifier</key>
-    <string>com.atvereklavs.notch</string>
+    <string>io.github.dedavil.notch</string>
     <key>CFBundleExecutable</key>
     <string>NotchApp</string>
     <key>CFBundlePackageType</key>

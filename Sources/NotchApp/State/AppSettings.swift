@@ -17,11 +17,11 @@ struct AppSettings {
 
         let port = env["NOTCH_PORT"].flatMap { UInt16($0) } ?? 8790
 
-        // Token: env wins, else ~/.config/klavs-notch/token (matches hook scripts).
+        // Token: env wins, else ~/.config/notch-cc/token (matches hook scripts).
         var token = env["NOTCH_TOKEN"]
         if token == nil {
             let path = (NSHomeDirectory() as NSString)
-                .appendingPathComponent(".config/klavs-notch/token")
+                .appendingPathComponent(".config/notch-cc/token")
             if let s = try? String(contentsOfFile: path, encoding: .utf8) {
                 let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
                 token = trimmed.isEmpty ? nil : trimmed

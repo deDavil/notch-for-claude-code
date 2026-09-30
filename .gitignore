@@ -1,9 +1,5 @@
 .build/
-*.xcodeproj
 build/
+*.xcodeproj
 *.zip
-
-# The repo-root '.gitignore' has 'state/' (runtime SQLite dir). On a
-# case-insensitive filesystem it also matches this Swift State/ source dir and
-# silently drops new files. Re-include it so that never happens again.
-!Sources/NotchApp/State/
+.DS_Store

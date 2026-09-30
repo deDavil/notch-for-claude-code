@@ -4,10 +4,10 @@
 # the shared token. The settings.json edit is backed up + validated like install.
 set -euo pipefail
 
-LABEL="com.atvereklavs.notch"
-APP_NAME="Klavs Notch"
+LABEL="io.github.dedavil.notch"
+APP_NAME="Notch"
 HOOKS_DIR="${HOME}/.claude/hooks/notch"
-CFG_DIR="${HOME}/.config/klavs-notch"
+CFG_DIR="${HOME}/.config/notch-cc"
 SETTINGS="${HOME}/.claude/settings.json"
 DEST_PLIST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 APP="${HOME}/Applications/${APP_NAME}.app"

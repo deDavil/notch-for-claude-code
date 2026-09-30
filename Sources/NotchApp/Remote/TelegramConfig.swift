@@ -4,7 +4,7 @@ import Foundation
 /// still works). Uses a DEDICATED bot token (do not reuse the runtime's bot —
 /// Telegram allows one getUpdates consumer per token).
 ///
-///   ~/.config/klavs-notch/telegram.json  (chmod 600)
+///   ~/.config/notch-cc/telegram.json  (chmod 600)
 ///   { "token": "123:ABC", "chat_id": 12345, "operator_id": 12345 }
 ///
 /// `operator_id` is optional; when set, only callbacks from that user id are
@@ -16,7 +16,7 @@ struct TelegramConfig {
 
     static func load() -> TelegramConfig? {
         let path = (NSHomeDirectory() as NSString)
-            .appendingPathComponent(".config/klavs-notch/telegram.json")
+            .appendingPathComponent(".config/notch-cc/telegram.json")
         guard let data = FileManager.default.contents(atPath: path) else { return nil }
         struct Raw: Decodable { let token: String; let chat_id: Int64; let operator_id: Int64? }
         guard let raw = try? JSONDecoder().decode(Raw.self, from: data),
